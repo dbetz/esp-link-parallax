@@ -11,11 +11,6 @@
 
 //#define STATE_DEBUG
 
-// in case we want to be able to load flash files
-//EspFsFile *espFsOpen(char *fileName);
-//int espFsRead(EspFsFile *fh, char *buff, int len);
-//int espFsSize(EspFsFile *fh);
-
 static void startLoading(PropellerConnection *connection, const uint8_t *image, int imageSize);
 static void finishLoading(PropellerConnection *connection);
 static void abortLoading(PropellerConnection *connection);
