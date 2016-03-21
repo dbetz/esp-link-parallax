@@ -156,6 +156,37 @@ int ICACHE_FLASH_ATTR cgiPropLoadFile(HttpdConnData *connData)
     return HTTPD_CGI_MORE;
 }
 
+int ICACHE_FLASH_ATTR cgiPropReset(HttpdConnData *connData)
+{
+    PropellerConnection *connection = &myConnection;
+    
+    // check for the cleanup call
+    if (connData->conn == NULL)
+        return HTTPD_CGI_DONE;
+
+    if (connection->state != stIdle) {
+        errorResponse(connData, 400, "Transfer already in progress\r\n");
+        return HTTPD_CGI_DONE;
+    }
+    connData->cgiPrivData = connection;
+    connection->connData = connData;
+
+    if (!getIntArg(connData, "reset-pin", &connection->resetPin))
+        connection->resetPin = flashConfig.reset_pin;
+
+    connection->image = NULL;
+
+    makeGpio(connection->resetPin);
+    GPIO_OUTPUT_SET(connection->resetPin, 1);
+    connection->state = stReset1;
+    
+    os_timer_disarm(&connection->timer);
+    os_timer_setfn(&connection->timer, timerCallback, connection);
+    os_timer_arm(&connection->timer, RESET_DELAY_1, 0);
+
+    return HTTPD_CGI_MORE;
+}
+
 static void ICACHE_FLASH_ATTR startLoading(PropellerConnection *connection, const uint8_t *image, int imageSize)
 {
     connection->image = image;
@@ -219,9 +250,14 @@ static void ICACHE_FLASH_ATTR timerCallback(void *data)
         os_timer_arm(&connection->timer, RESET_DELAY_2, 0);
         break;
     case stReset2:
-        connection->state = stTxHandshake;
         GPIO_OUTPUT_SET(connection->resetPin, 1);
         os_timer_arm(&connection->timer, RESET_DELAY_3, 0);
+        if (connection->image)
+            connection->state = stTxHandshake;
+        else {
+            httpdSendResponse(connection->connData, 200, "");
+            connection->state = stIdle;
+        }
         break;
     case stTxHandshake:
         connection->state = stRxHandshake;
