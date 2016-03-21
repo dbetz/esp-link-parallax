@@ -65,6 +65,8 @@ int ICACHE_FLASH_ATTR cgiPropSetBaudRate(HttpdConnData *connData)
         return HTTPD_CGI_DONE;
     }
 
+    DBG("set-baud-rate: baud-rate %d\n", baudRate);
+
     uart0_baud(baudRate);
 
     noCacheHeaders(connData, 200);
@@ -173,6 +175,8 @@ int ICACHE_FLASH_ATTR cgiPropReset(HttpdConnData *connData)
 
     if (!getIntArg(connData, "reset-pin", &connection->resetPin))
         connection->resetPin = flashConfig.reset_pin;
+
+    DBG("reset: reset-pin %d\n", connection->resetPin);
 
     connection->image = NULL;
 

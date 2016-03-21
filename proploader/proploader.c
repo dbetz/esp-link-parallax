@@ -174,6 +174,7 @@ int ICACHE_FLASH_ATTR ploadLoadImage(PropellerConnection *connection, LoadType l
     if (connection->image) {
         if ((byteCount = encodeBuffer(connection->image, connection->imageSize)) == -1)
             return -1;
+        connection->image = NULL;
     }
     else if (connection->file) {
         if ((byteCount = encodeFile(connection->file, connection->imageSize)) == -1)
