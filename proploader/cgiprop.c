@@ -18,8 +18,6 @@ static void httpdSendResponse(HttpdConnData *connData, int code, char *message);
 static void timerCallback(void *data);
 static void readCallback(char *buf, short length);
 
-#ifdef STATE_DEBUG
-
 /* the order here must match the definition of LoadState in proploader.h */
 static const char *stateNames[] = {
     "Idle",
@@ -34,8 +32,6 @@ static const ICACHE_FLASH_ATTR char *stateName(LoadState state)
 {
     return state >= 0 && state < stMAX ? stateNames[state] : "Unknown";
 }
-
-#endif
 
 int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, int *pValue)
 {
@@ -59,6 +55,10 @@ int ICACHE_FLASH_ATTR cgiPropInit()
 int ICACHE_FLASH_ATTR cgiPropSetBaudRate(HttpdConnData *connData)
 {
     int baudRate;
+    
+    // check for the cleanup call
+    if (connData->conn == NULL)
+        return HTTPD_CGI_DONE;
 
     if (!getIntArg(connData, "baud-rate", &baudRate)) {
         errorResponse(connData, 400, "No baud-rate specified\r\n");
@@ -85,7 +85,9 @@ int ICACHE_FLASH_ATTR cgiPropLoad(HttpdConnData *connData)
         return HTTPD_CGI_DONE;
 
     if (connection->state != stIdle) {
-        errorResponse(connData, 400, "Transfer already in progress\r\n");
+        char buf[128];
+        os_sprintf(buf, "Transfer already in progress: state %s\r\n", stateName(connection->state));
+        errorResponse(connData, 400, buf);
         return HTTPD_CGI_DONE;
     }
     connData->cgiPrivData = connection;
@@ -127,7 +129,9 @@ int ICACHE_FLASH_ATTR cgiPropLoadFile(HttpdConnData *connData)
         return HTTPD_CGI_DONE;
 
     if (connection->state != stIdle) {
-        errorResponse(connData, 400, "Transfer already in progress\r\n");
+        char buf[128];
+        os_sprintf(buf, "Transfer already in progress: state %s\r\n", stateName(connection->state));
+        errorResponse(connData, 400, buf);
         return HTTPD_CGI_DONE;
     }
     connData->cgiPrivData = connection;
@@ -167,7 +171,9 @@ int ICACHE_FLASH_ATTR cgiPropReset(HttpdConnData *connData)
         return HTTPD_CGI_DONE;
 
     if (connection->state != stIdle) {
-        errorResponse(connData, 400, "Transfer already in progress\r\n");
+        char buf[128];
+        os_sprintf(buf, "Transfer already in progress: state %s\r\n", stateName(connection->state));
+        errorResponse(connData, 400, buf);
         return HTTPD_CGI_DONE;
     }
     connData->cgiPrivData = connection;
