@@ -18,8 +18,6 @@ static void httpdSendResponse(HttpdConnData *connData, int code, char *message);
 static void timerCallback(void *data);
 static void readCallback(char *buf, short length);
 
-#ifdef STATE_DEBUG
-
 /* the order here must match the definition of LoadState in proploader.h */
 static const char *stateNames[] = {
     "Idle",
@@ -34,8 +32,6 @@ static const ICACHE_FLASH_ATTR char *stateName(LoadState state)
 {
     return state >= 0 && state < stMAX ? stateNames[state] : "Unknown";
 }
-
-#endif
 
 int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, int *pValue)
 {
@@ -59,11 +55,17 @@ int ICACHE_FLASH_ATTR cgiPropInit()
 int ICACHE_FLASH_ATTR cgiPropSetBaudRate(HttpdConnData *connData)
 {
     int baudRate;
+    
+    // check for the cleanup call
+    if (connData->conn == NULL)
+        return HTTPD_CGI_DONE;
 
     if (!getIntArg(connData, "baud-rate", &baudRate)) {
         errorResponse(connData, 400, "No baud-rate specified\r\n");
         return HTTPD_CGI_DONE;
     }
+
+    DBG("set-baud-rate: baud-rate %d\n", baudRate);
 
     uart0_baud(baudRate);
 
@@ -83,7 +85,9 @@ int ICACHE_FLASH_ATTR cgiPropLoad(HttpdConnData *connData)
         return HTTPD_CGI_DONE;
 
     if (connection->state != stIdle) {
-        errorResponse(connData, 400, "Transfer already in progress\r\n");
+        char buf[128];
+        os_sprintf(buf, "Transfer already in progress: state %s\r\n", stateName(connection->state));
+        errorResponse(connData, 400, buf);
         return HTTPD_CGI_DONE;
     }
     connData->cgiPrivData = connection;
@@ -108,50 +112,42 @@ int ICACHE_FLASH_ATTR cgiPropLoad(HttpdConnData *connData)
     
     DBG("load: size %d, baud-rate %d, final-baud-rate %d, reset-pin %d\n", connData->post->buffLen, connection->baudRate, connection->finalBaudRate, connection->resetPin);
 
-    connection->file = NULL;
     startLoading(connection, (uint8_t *)connData->post->buff, connData->post->buffLen);
 
     return HTTPD_CGI_MORE;
 }
 
-int ICACHE_FLASH_ATTR cgiPropLoadFile(HttpdConnData *connData)
+int ICACHE_FLASH_ATTR cgiPropReset(HttpdConnData *connData)
 {
     PropellerConnection *connection = &myConnection;
-    char fileName[128];
-    int fileSize;
     
     // check for the cleanup call
     if (connData->conn == NULL)
         return HTTPD_CGI_DONE;
 
     if (connection->state != stIdle) {
-        errorResponse(connData, 400, "Transfer already in progress\r\n");
+        char buf[128];
+        os_sprintf(buf, "Transfer already in progress: state %s\r\n", stateName(connection->state));
+        errorResponse(connData, 400, buf);
         return HTTPD_CGI_DONE;
     }
     connData->cgiPrivData = connection;
     connection->connData = connData;
-    
-    if (!getStringArg(connData, "file", fileName, sizeof(fileName))) {
-        errorResponse(connData, 400, "Missing file argument\r\n");
-        return HTTPD_CGI_DONE;
-    }
 
-    if (!(connection->file = espFsOpen(fileName))) {
-        errorResponse(connData, 400, "File not found\r\n");
-        return HTTPD_CGI_DONE;
-    }
-    fileSize = espFsSize(connection->file);
-
-    if (!getIntArg(connData, "baud-rate", &connection->baudRate))
-        connection->baudRate = flashConfig.baud_rate;
-    if (!getIntArg(connData, "final-baud-rate", &connection->finalBaudRate))
-        connection->finalBaudRate = connection->baudRate;
     if (!getIntArg(connData, "reset-pin", &connection->resetPin))
         connection->resetPin = flashConfig.reset_pin;
-    
-    DBG("load-file: file %s, size %d, baud-rate %d, final-baud-rate %d, reset-pin %d\n", fileName, fileSize, connection->baudRate, connection->finalBaudRate, connection->resetPin);
 
-    startLoading(connection, NULL, fileSize);
+    DBG("reset: reset-pin %d\n", connection->resetPin);
+
+    connection->image = NULL;
+
+    makeGpio(connection->resetPin);
+    GPIO_OUTPUT_SET(connection->resetPin, 1);
+    connection->state = stReset1;
+    
+    os_timer_disarm(&connection->timer);
+    os_timer_setfn(&connection->timer, timerCallback, connection);
+    os_timer_arm(&connection->timer, RESET_DELAY_1, 0);
 
     return HTTPD_CGI_MORE;
 }
@@ -219,9 +215,14 @@ static void ICACHE_FLASH_ATTR timerCallback(void *data)
         os_timer_arm(&connection->timer, RESET_DELAY_2, 0);
         break;
     case stReset2:
-        connection->state = stTxHandshake;
         GPIO_OUTPUT_SET(connection->resetPin, 1);
         os_timer_arm(&connection->timer, RESET_DELAY_3, 0);
+        if (connection->image)
+            connection->state = stTxHandshake;
+        else {
+            httpdSendResponse(connection->connData, 200, "");
+            connection->state = stIdle;
+        }
         break;
     case stTxHandshake:
         connection->state = stRxHandshake;

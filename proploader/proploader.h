@@ -5,7 +5,6 @@
 #include <osapi.h>
 #include "os_type.h"
 #include "httpd.h"
-#include "espfs.h"
 
 #define PROP_DBG
 
@@ -39,7 +38,6 @@ typedef struct {
     int baudRate;
     int finalBaudRate;
     LoadType loadType;
-    EspFsFile *file;        // this is set for loading a file
     const uint8_t *image;   // this is set for loading an image in memory
     int imageSize;
     LoadState state;

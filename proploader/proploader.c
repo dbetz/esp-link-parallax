@@ -139,7 +139,6 @@ static const uint8_t rxHandshake[] = {
 
 static int startLoad(LoadType loadType, int imageSize);
 static int encodeBuffer(const uint8_t *buffer, int size);
-static int encodeFile(EspFsFile *file, int size);
 static void finishLoad(PropellerConnection *connection, int byteCount);
 
 int ICACHE_FLASH_ATTR ploadInitiateHandshake(PropellerConnection *connection)
@@ -178,12 +177,7 @@ int ICACHE_FLASH_ATTR ploadLoadImage(PropellerConnection *connection, LoadType l
     if (connection->image) {
         if ((byteCount = encodeBuffer(connection->image, connection->imageSize)) == -1)
             return -1;
-    }
-    else if (connection->file) {
-        if ((byteCount = encodeFile(connection->file, connection->imageSize)) == -1)
-            return -1;
-        espFsClose(connection->file);
-        connection->file = NULL;
+        connection->image = NULL;
     }
     else
         return -1;
@@ -226,24 +220,6 @@ static int startLoad(LoadType loadType, int imageSize)
     }
 
     return 0;
-}
-
-static int encodeFile(EspFsFile *file, int size)
-{
-    uint8_t buffer[1024];
-    int remaining = size;
-    int encodedSize = 0;
-
-    while (remaining > 0) {
-        int readSize = remaining > sizeof(buffer) ? sizeof(buffer) : remaining;
-        if (espFsRead(file, (char *)buffer, readSize) != readSize)
-            return -1;
-        encodedSize += encodeBuffer(buffer, readSize);
-        remaining -= readSize;
-        system_soft_wdt_feed(); // BUG! -- this is ugly!
-    }
-
-    return encodedSize;
 }
 
 static int encodeBuffer(const uint8_t *buffer, int size)
