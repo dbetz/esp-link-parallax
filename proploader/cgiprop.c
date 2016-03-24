@@ -141,8 +141,8 @@ int ICACHE_FLASH_ATTR cgiPropReset(HttpdConnData *connData)
 
     connection->image = NULL;
 
-    makeGpio(connection->resetPin);
     GPIO_OUTPUT_SET(connection->resetPin, 1);
+    makeGpio(connection->resetPin);
     connection->state = stReset1;
     
     os_timer_disarm(&connection->timer);
@@ -160,8 +160,8 @@ static void ICACHE_FLASH_ATTR startLoading(PropellerConnection *connection, cons
     uart0_baud(connection->baudRate);
     programmingCB = readCallback;
 
-    makeGpio(connection->resetPin);
     GPIO_OUTPUT_SET(connection->resetPin, 1);
+    makeGpio(connection->resetPin);
     connection->state = stReset1;
     
     os_timer_disarm(&connection->timer);
