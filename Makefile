@@ -413,7 +413,6 @@ $(BUILD_BASE)/espfs_img.o: html/ html/wifi/ espfs/mkespfsimage/mkespfsimage
 	$(Q) cp -r html/*.js html_compressed;
 	$(Q) cp -r html/wifi/*.png html_compressed/wifi;
 	$(Q) cp -r html/wifi/*.js html_compressed/wifi;
-	$(Q) cp -r proploader/images/*.binary html_compressed;
 ifeq ("$(COMPRESS_W_HTMLCOMPRESSOR)","yes")
 	$(Q) echo "Compression assets with htmlcompressor. This may take a while..."
 		$(Q) java -jar tools/$(HTML_COMPRESSOR) \

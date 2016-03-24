@@ -90,7 +90,6 @@ HttpdBuiltInUrl builtInUrls[] = {
 #ifdef PROPLOADER
   { "/propeller/set-baud-rate", cgiPropSetBaudRate, NULL },
   { "/propeller/load", cgiPropLoad, NULL },
-  { "/propeller/load-file", cgiPropLoadFile, NULL },
   { "/propeller/reset", cgiPropReset, NULL },
   { "*", cgiHTTPHandleRequest, NULL }, //Check to see if MCU can handle the request
 #endif

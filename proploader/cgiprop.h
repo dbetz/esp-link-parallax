@@ -6,7 +6,6 @@
 int cgiPropInit();
 int cgiPropSetBaudRate(HttpdConnData *connData);
 int cgiPropLoad(HttpdConnData *connData);
-int cgiPropLoadFile(HttpdConnData *connData);
 int cgiPropReset(HttpdConnData *connData);
 
 #endif

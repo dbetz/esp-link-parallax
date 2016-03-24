@@ -112,52 +112,7 @@ int ICACHE_FLASH_ATTR cgiPropLoad(HttpdConnData *connData)
     
     DBG("load: size %d, baud-rate %d, final-baud-rate %d, reset-pin %d\n", connData->post->buffLen, connection->baudRate, connection->finalBaudRate, connection->resetPin);
 
-    connection->file = NULL;
     startLoading(connection, (uint8_t *)connData->post->buff, connData->post->buffLen);
-
-    return HTTPD_CGI_MORE;
-}
-
-int ICACHE_FLASH_ATTR cgiPropLoadFile(HttpdConnData *connData)
-{
-    PropellerConnection *connection = &myConnection;
-    char fileName[128];
-    int fileSize;
-    
-    // check for the cleanup call
-    if (connData->conn == NULL)
-        return HTTPD_CGI_DONE;
-
-    if (connection->state != stIdle) {
-        char buf[128];
-        os_sprintf(buf, "Transfer already in progress: state %s\r\n", stateName(connection->state));
-        errorResponse(connData, 400, buf);
-        return HTTPD_CGI_DONE;
-    }
-    connData->cgiPrivData = connection;
-    connection->connData = connData;
-    
-    if (!getStringArg(connData, "file", fileName, sizeof(fileName))) {
-        errorResponse(connData, 400, "Missing file argument\r\n");
-        return HTTPD_CGI_DONE;
-    }
-
-    if (!(connection->file = espFsOpen(fileName))) {
-        errorResponse(connData, 400, "File not found\r\n");
-        return HTTPD_CGI_DONE;
-    }
-    fileSize = espFsSize(connection->file);
-
-    if (!getIntArg(connData, "baud-rate", &connection->baudRate))
-        connection->baudRate = flashConfig.baud_rate;
-    if (!getIntArg(connData, "final-baud-rate", &connection->finalBaudRate))
-        connection->finalBaudRate = connection->baudRate;
-    if (!getIntArg(connData, "reset-pin", &connection->resetPin))
-        connection->resetPin = flashConfig.reset_pin;
-    
-    DBG("load-file: file %s, size %d, baud-rate %d, final-baud-rate %d, reset-pin %d\n", fileName, fileSize, connection->baudRate, connection->finalBaudRate, connection->resetPin);
-
-    startLoading(connection, NULL, fileSize);
 
     return HTTPD_CGI_MORE;
 }
