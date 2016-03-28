@@ -13,14 +13,38 @@ static void ICACHE_FLASH_ATTR discoverRecvCallback(void *arg, char *data, unsign
     remot_info *remoteInfo;
     struct espconn responseConn;
     esp_udp responseUdp;
-    
-    if (espconn_get_connection_info(conn, &remoteInfo, 0) != 0) {
-        os_printf("DISCOVER: espconn_get_connection_info failed\n");
-        return;
+    uint32_t *rxNext;
+    uint32_t myAddress = (conn->proto.udp->local_ip[3] << 24)
+                       | (conn->proto.udp->local_ip[2] << 16)
+                       | (conn->proto.udp->local_ip[1] << 8)
+                       |  conn->proto.udp->local_ip[0];
+    os_printf("DISCOVER: myAddress %08lx\n", myAddress);
+
+    // check to see if we already replied to this request
+    rxNext = (uint32_t *)data;
+    if (len > sizeof(uint32_t)) {
+        if (*rxNext++ != 0) {
+            os_printf("DISCOVER: received a bogus discover request\n");
+            return;
+        }
+        len -= sizeof(uint32_t);
+        while (len >= sizeof(uint32_t)) {
+os_printf("DISCOVER: Checking %08lx\n", *rxNext);
+            if (*rxNext++ == myAddress) {
+                os_printf("DISCOVER: already replied\n");
+                return;
+            }
+            len -= sizeof(uint32_t);
+        }
     }
 
     // insert a random delay to avoid udp packet collisions from multiple modules
     os_delay_us(10000 + (unsigned)os_random() % 50000);
+
+    if (espconn_get_connection_info(conn, &remoteInfo, 0) != 0) {
+        os_printf("DISCOVER: espconn_get_connection_info failed\n");
+        return;
+    }
 
     responseConn.type = ESPCONN_UDP;
     responseConn.state = ESPCONN_NONE;
