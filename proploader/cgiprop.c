@@ -11,10 +11,15 @@
 
 //#define STATE_DEBUG
 
+static ETSTimer resetButtonTimer;
+static int resetButtonState;
+static int resetButtonCount;
+
 static void startLoading(PropellerConnection *connection, const uint8_t *image, int imageSize);
 static void finishLoading(PropellerConnection *connection);
 static void abortLoading(PropellerConnection *connection);
 static void httpdSendResponse(HttpdConnData *connData, int code, char *message);
+static void resetButtonTimerCallback(void *data);
 static void timerCallback(void *data);
 static void readCallback(char *buf, short length);
 
@@ -49,6 +54,11 @@ int ICACHE_FLASH_ATTR cgiPropInit()
 {
     memset(&myConnection, 0, sizeof(PropellerConnection));
     myConnection.state = stIdle;
+    resetButtonState = 1;
+    resetButtonCount = 0;
+    gpio_output_set(0, 0, 0, 1 << RESET_BUTTON_PIN);
+    os_timer_setfn(&resetButtonTimer, resetButtonTimerCallback, 0);
+    os_timer_arm(&resetButtonTimer, RESET_BUTTON_SAMPLE_INTERVAL, 1);
     return 1;
 }
 
@@ -193,6 +203,37 @@ static void ICACHE_FLASH_ATTR httpdSendResponse(HttpdConnData *connData, int cod
     errorResponse(connData, code, message);
     httpdFlush(connData);
     connData->cgi = NULL;
+}
+
+static void ICACHE_FLASH_ATTR resetButtonTimerCallback(void *data)
+{
+    static int previousState = 1;
+    static int matchingSampleCount = 0;
+    static int buttonPressCount = 0;
+    static uint32_t lastButtonTime;
+    int newState = GPIO_INPUT_GET(RESET_BUTTON_PIN);
+    if (newState != previousState)
+        matchingSampleCount = 0;
+    else if (matchingSampleCount < RESET_BUTTON_THRESHOLD) {
+        if (++matchingSampleCount == RESET_BUTTON_THRESHOLD) {
+            if (newState != resetButtonState) {
+                resetButtonState = newState;
+                if (resetButtonState == 0) {
+                    uint32_t buttonTime = system_get_time() / 1000;
+                    //os_printf("Reset button press: count %d, last %u, this %u\n", buttonPressCount, (unsigned)lastButtonTime, (unsigned)buttonTime);
+                    if (buttonPressCount == 0 || buttonTime - lastButtonTime > RESET_BUTTON_PRESS_DELTA)
+                        buttonPressCount = 1;
+                    else if (++buttonPressCount == RESET_BUTTON_PRESS_COUNT) {
+                        os_printf("Entering STA+AP mode\n");
+                        wifi_set_opmode(STATIONAP_MODE);
+                        buttonPressCount = 0;
+                    }
+                    lastButtonTime = buttonTime;
+                }
+            }
+        }
+    }
+    previousState = newState;
 }
 
 static void ICACHE_FLASH_ATTR timerCallback(void *data)

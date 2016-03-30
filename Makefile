@@ -68,7 +68,7 @@ ESPBAUD		?= 460800
 # --------------- chipset configuration   ---------------
 
 # Pick your flash size: "512KB", "1MB", or "4MB"
-FLASH_SIZE ?= 1MB
+FLASH_SIZE ?= 4MB
 
 # The pin assignments below are used when the settings in flash are invalid, they
 # can be changed via the web interface
@@ -77,7 +77,7 @@ MCU_RESET_PIN       ?= 12
 # GPIO pin used with reset to reprogram MCU (ISP=in-system-programming, unused with AVRs), active low
 MCU_ISP_PIN         ?= 13
 # GPIO pin used for "connectivity" LED, active low
-LED_CONN_PIN        ?= 0
+LED_CONN_PIN        ?= 5
 # GPIO pin used for "serial activity" LED, active low
 LED_SERIAL_PIN      ?= 14
 
@@ -316,6 +316,8 @@ endif
 ifeq ("$(CHANGE_TO_STA)","yes")
 CFLAGS		+= -DCHANGE_TO_STA
 endif
+
+${info CFLAGS $(CFLAGS)}
 
 vpath %.c $(SRC_DIR)
 

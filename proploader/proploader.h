@@ -48,15 +48,21 @@ typedef struct {
     int bytesRemaining;
 } PropellerConnection;
 
-#define RESET_DELAY_1           10
-#define RESET_DELAY_2           10
-#define RESET_DELAY_3           100
-#define CALIBRATE_DELAY         10
+#define RESET_BUTTON_PIN                0
+#define RESET_BUTTON_SAMPLE_INTERVAL    5
+#define RESET_BUTTON_THRESHOLD          5
+#define RESET_BUTTON_PRESS_DELTA        500
+#define RESET_BUTTON_PRESS_COUNT        4
 
-#define RX_HANDSHAKE_TIMEOUT    2000
-#define RX_CHECKSUM_TIMEOUT     250
-#define EEPROM_PROGRAM_TIMEOUT  5000
-#define EEPROM_VERIFY_TIMEOUT   2000
+#define RESET_DELAY_1                   10
+#define RESET_DELAY_2                   10
+#define RESET_DELAY_3                   100
+#define CALIBRATE_DELAY                 10
+
+#define RX_HANDSHAKE_TIMEOUT            2000
+#define RX_CHECKSUM_TIMEOUT             250
+#define EEPROM_PROGRAM_TIMEOUT          5000
+#define EEPROM_VERIFY_TIMEOUT           2000
 
 int ploadInitiateHandshake(PropellerConnection *connection);
 int ploadVerifyHandshakeResponse(PropellerConnection *connection, int *pVersion);

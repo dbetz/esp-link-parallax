@@ -5,8 +5,12 @@ release/blank.bin
 
 FLASH_BLOCK_SIZE=1024
 
-all:	padded
+all:	build padded
 	cd release; zip ../esp-link *
+
+build:
+	make -C .. clean
+	make -C .. STA_SSID= STA_PASS=
 
 padded:	release $(IMAGES)
 	cp flash.sh release
