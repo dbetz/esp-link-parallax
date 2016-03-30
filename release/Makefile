@@ -5,20 +5,23 @@ release/blank.bin
 
 FLASH_BLOCK_SIZE=1024
 
-all:	build padded
+# this rule doesn't seem to work but running build followed by zip does
+#all:	build zip
+
+zip:	padded
 	cd release; zip ../esp-link *
 
 build:
-	make -C .. clean
-	make -C .. STA_SSID= STA_PASS=
+	$(MAKE) -C .. STA_SSID= STA_PASS= clean
+	$(MAKE) -C .. STA_SSID= STA_PASS=
 
 padded:	release $(IMAGES)
 	cp flash.sh release
 
-release/%:	../../esp_iot_sdk_v1.5.2/bin/% pad
+release/%:	../firmware/% pad
 	./pad $(FLASH_BLOCK_SIZE) <$< >$@
 
-release/%:	../firmware/% pad
+release/%:	../../esp_iot_sdk_v1.5.2/bin/% pad
 	./pad $(FLASH_BLOCK_SIZE) <$< >$@
 
 release:
