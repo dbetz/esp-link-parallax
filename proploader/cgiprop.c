@@ -20,6 +20,7 @@ static void finishLoading(PropellerConnection *connection);
 static void abortLoading(PropellerConnection *connection);
 static void httpdSendResponse(HttpdConnData *connData, int code, char *message);
 static void resetButtonTimerCallback(void *data);
+static void armTimer(PropellerConnection *connection, int delay);
 static void timerCallback(void *data);
 static void readCallback(char *buf, short length);
 
@@ -102,6 +103,8 @@ int ICACHE_FLASH_ATTR cgiPropLoad(HttpdConnData *connData)
     }
     connData->cgiPrivData = connection;
     connection->connData = connData;
+
+    os_timer_setfn(&connection->timer, timerCallback, connection);
     
     if (connData->post->len == 0) {
         errorResponse(connData, 400, "No data\r\n");
@@ -144,6 +147,8 @@ int ICACHE_FLASH_ATTR cgiPropReset(HttpdConnData *connData)
     connData->cgiPrivData = connection;
     connection->connData = connData;
 
+    os_timer_setfn(&connection->timer, timerCallback, connection);
+    
     if (!getIntArg(connData, "reset-pin", &connection->resetPin))
         connection->resetPin = flashConfig.reset_pin;
 
@@ -155,9 +160,7 @@ int ICACHE_FLASH_ATTR cgiPropReset(HttpdConnData *connData)
     makeGpio(connection->resetPin);
     connection->state = stReset1;
     
-    os_timer_disarm(&connection->timer);
-    os_timer_setfn(&connection->timer, timerCallback, connection);
-    os_timer_arm(&connection->timer, RESET_DELAY_1, 0);
+    armTimer(connection, RESET_DELAY_1);
 
     return HTTPD_CGI_MORE;
 }
@@ -174,9 +177,7 @@ static void ICACHE_FLASH_ATTR startLoading(PropellerConnection *connection, cons
     makeGpio(connection->resetPin);
     connection->state = stReset1;
     
-    os_timer_disarm(&connection->timer);
-    os_timer_setfn(&connection->timer, timerCallback, connection);
-    os_timer_arm(&connection->timer, RESET_DELAY_1, 0);
+    armTimer(connection, RESET_DELAY_1);
 }
 
 static void ICACHE_FLASH_ATTR finishLoading(PropellerConnection *connection)
@@ -236,11 +237,15 @@ static void ICACHE_FLASH_ATTR resetButtonTimerCallback(void *data)
     previousState = newState;
 }
 
+static void ICACHE_FLASH_ATTR armTimer(PropellerConnection *connection, int delay)
+{
+    os_timer_disarm(&connection->timer);
+    os_timer_arm(&connection->timer, delay, 0);
+}
+
 static void ICACHE_FLASH_ATTR timerCallback(void *data)
 {
     PropellerConnection *connection = (PropellerConnection *)data;
-    
-    os_timer_disarm(&connection->timer);
     
 #ifdef STATE_DEBUG
     DBG("TIMER %s", stateName(connection->state));
@@ -253,11 +258,11 @@ static void ICACHE_FLASH_ATTR timerCallback(void *data)
     case stReset1:
         connection->state = stReset2;
         GPIO_OUTPUT_SET(connection->resetPin, 0);
-        os_timer_arm(&connection->timer, RESET_DELAY_2, 0);
+        armTimer(connection, RESET_DELAY_2);
         break;
     case stReset2:
         GPIO_OUTPUT_SET(connection->resetPin, 1);
-        os_timer_arm(&connection->timer, RESET_DELAY_3, 0);
+        armTimer(connection, RESET_DELAY_3);
         if (connection->image)
             connection->state = stTxHandshake;
         else {
@@ -268,7 +273,7 @@ static void ICACHE_FLASH_ATTR timerCallback(void *data)
     case stTxHandshake:
         connection->state = stRxHandshake;
         ploadInitiateHandshake(connection);
-        os_timer_arm(&connection->timer, RX_HANDSHAKE_TIMEOUT, 0);
+        armTimer(connection, RX_HANDSHAKE_TIMEOUT);
         break;
     case stRxHandshake:
         httpdSendResponse(connection->connData, 400, "RX handshake timeout\r\n");
@@ -277,7 +282,7 @@ static void ICACHE_FLASH_ATTR timerCallback(void *data)
     case stVerifyChecksum:
         if (connection->retriesRemaining > 0) {
             uart_tx_one_char(UART0, 0xF9);
-            os_timer_arm(&connection->timer, connection->retryDelay, 0);
+            armTimer(connection, connection->retryDelay);
             --connection->retriesRemaining;
         }
         else {
@@ -299,8 +304,6 @@ static void ICACHE_FLASH_ATTR readCallback(char *buf, short length)
     PropellerConnection *connection = &myConnection;
     int cnt, version;
     
-    os_timer_disarm(&connection->timer);
-    
 #ifdef STATE_DEBUG
     DBG("READ: length %d, state %s", length, stateName(connection->state));
 #endif
@@ -320,7 +323,7 @@ static void ICACHE_FLASH_ATTR readCallback(char *buf, short length)
         if ((connection->bytesRemaining -= cnt) == 0) {
             if (ploadVerifyHandshakeResponse(connection, &version) == 0) {
                 if (ploadLoadImage(connection, ltDownloadAndRun) == 0) {
-                    os_timer_arm(&connection->timer, connection->retryDelay, 0);
+                    armTimer(connection, connection->retryDelay);
                     connection->state = stVerifyChecksum;
                 }
                 else {

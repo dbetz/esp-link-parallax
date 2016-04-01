@@ -392,6 +392,11 @@ flash: all
 	  0x00000 "$(SDK_BASE)/bin/boot_v1.5.bin" 0x01000 $(FW_BASE)/user1.bin \
 	  $(ET_BLANK) $(SDK_BASE)/bin/blank.bin
 
+flash-all: all
+	$(Q) $(ESPTOOL) --port $(ESPPORT) --baud $(ESPBAUD) write_flash -fs $(ET_FS) -ff $(ET_FF) \
+	  0x00000 "$(SDK_BASE)/bin/boot_v1.5.bin" 0x01000 $(FW_BASE)/user1.bin \
+	  $(ET_BLANK) $(SDK_BASE)/bin/blank.bin 0x7e000 $(SDK_BASE)/bin/blank.bin 0x7f000 $(SDK_BASE)/bin/blank.bin
+
 ifeq ($(OS),Windows_NT)
 tools/$(HTML_COMPRESSOR):
 	$(Q) mkdir -p tools
