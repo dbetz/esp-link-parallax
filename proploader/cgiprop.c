@@ -31,6 +31,7 @@ static const char *stateNames[] = {
     "Reset2",
     "TxHandshake",
     "RxHandshake",
+    "LoadContinue",
     "VerifyChecksum"
 };
 
@@ -125,7 +126,54 @@ int ICACHE_FLASH_ATTR cgiPropLoad(HttpdConnData *connData)
     
     DBG("load: size %d, baud-rate %d, final-baud-rate %d, reset-pin %d\n", connData->post->buffLen, connection->baudRate, connection->finalBaudRate, connection->resetPin);
 
+    connection->file = NULL;
     startLoading(connection, (uint8_t *)connData->post->buff, connData->post->buffLen);
+
+    return HTTPD_CGI_MORE;
+}
+
+int ICACHE_FLASH_ATTR cgiPropLoadFile(HttpdConnData *connData)
+{
+    PropellerConnection *connection = &myConnection;
+    char fileName[128];
+    int fileSize;
+    
+    // check for the cleanup call
+    if (connData->conn == NULL)
+        return HTTPD_CGI_DONE;
+
+    if (connection->state != stIdle) {
+        char buf[128];
+        os_sprintf(buf, "Transfer already in progress: state %s\r\n", stateName(connection->state));
+        errorResponse(connData, 400, buf);
+        return HTTPD_CGI_DONE;
+    }
+    connData->cgiPrivData = connection;
+    connection->connData = connData;
+    
+    os_timer_setfn(&connection->timer, timerCallback, connection);
+    
+    if (!getStringArg(connData, "file", fileName, sizeof(fileName))) {
+        errorResponse(connData, 400, "Missing file argument\r\n");
+        return HTTPD_CGI_DONE;
+    }
+
+    if (!(connection->file = espFsOpen(fileName))) {
+        errorResponse(connData, 400, "File not found\r\n");
+        return HTTPD_CGI_DONE;
+    }
+    fileSize = espFsSize(connection->file);
+
+    if (!getIntArg(connData, "baud-rate", &connection->baudRate))
+        connection->baudRate = flashConfig.baud_rate;
+    if (!getIntArg(connData, "final-baud-rate", &connection->finalBaudRate))
+        connection->finalBaudRate = connection->baudRate;
+    if (!getIntArg(connData, "reset-pin", &connection->resetPin))
+        connection->resetPin = flashConfig.reset_pin;
+    
+    DBG("load-file: file %s, size %d, baud-rate %d, final-baud-rate %d, reset-pin %d\n", fileName, fileSize, connection->baudRate, connection->finalBaudRate, connection->resetPin);
+
+    startLoading(connection, NULL, fileSize);
 
     return HTTPD_CGI_MORE;
 }
@@ -246,6 +294,7 @@ static void ICACHE_FLASH_ATTR armTimer(PropellerConnection *connection, int dela
 static void ICACHE_FLASH_ATTR timerCallback(void *data)
 {
     PropellerConnection *connection = (PropellerConnection *)data;
+    int finished;
     
 #ifdef STATE_DEBUG
     DBG("TIMER %s", stateName(connection->state));
@@ -263,7 +312,7 @@ static void ICACHE_FLASH_ATTR timerCallback(void *data)
     case stReset2:
         GPIO_OUTPUT_SET(connection->resetPin, 1);
         armTimer(connection, RESET_DELAY_3);
-        if (connection->image)
+        if (connection->image || connection->file)
             connection->state = stTxHandshake;
         else {
             httpdSendResponse(connection->connData, 200, "");
@@ -278,6 +327,18 @@ static void ICACHE_FLASH_ATTR timerCallback(void *data)
     case stRxHandshake:
         httpdSendResponse(connection->connData, 400, "RX handshake timeout\r\n");
         abortLoading(connection);
+        break;
+    case stLoadContinue:
+        if (ploadLoadImageContinue(connection, ltDownloadAndRun, &finished) == 0) {
+            if (finished) {
+                armTimer(connection, connection->retryDelay);
+                connection->state = stVerifyChecksum;
+            }
+            else {
+                armTimer(connection, LOAD_SEGMENT_DELAY);
+                connection->state = stLoadContinue;
+            }
+        }
         break;
     case stVerifyChecksum:
         if (connection->retriesRemaining > 0) {
@@ -302,7 +363,7 @@ static void ICACHE_FLASH_ATTR timerCallback(void *data)
 static void ICACHE_FLASH_ATTR readCallback(char *buf, short length)
 {
     PropellerConnection *connection = &myConnection;
-    int cnt, version;
+    int cnt, version, finished;
     
 #ifdef STATE_DEBUG
     DBG("READ: length %d, state %s", length, stateName(connection->state));
@@ -313,6 +374,7 @@ static void ICACHE_FLASH_ATTR readCallback(char *buf, short length)
     case stReset1:
     case stReset2:
     case stTxHandshake:
+    case stLoadContinue:
         // just ignore data received when we're not expecting it
         break;
     case stRxHandshake:
@@ -322,9 +384,15 @@ static void ICACHE_FLASH_ATTR readCallback(char *buf, short length)
         connection->bytesReceived += cnt;
         if ((connection->bytesRemaining -= cnt) == 0) {
             if (ploadVerifyHandshakeResponse(connection, &version) == 0) {
-                if (ploadLoadImage(connection, ltDownloadAndRun) == 0) {
-                    armTimer(connection, connection->retryDelay);
-                    connection->state = stVerifyChecksum;
+                if (ploadLoadImage(connection, ltDownloadAndRun, &finished) == 0) {
+                    if (finished) {
+                        armTimer(connection, connection->retryDelay);
+                        connection->state = stVerifyChecksum;
+                    }
+                    else {
+                        armTimer(connection, LOAD_SEGMENT_DELAY);
+                        connection->state = stLoadContinue;
+                    }
                 }
                 else {
                     httpdSendResponse(connection->connData, 400, "Load image failed\r\n");

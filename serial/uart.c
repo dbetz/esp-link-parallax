@@ -115,6 +115,24 @@ uart_tx_one_char(uint8 uart, uint8 c)
 }
 
 /******************************************************************************
+ * FunctionName : uart1_try_tx_one_char
+ * Description  : Internal used function
+ *                Use uart1 interface to attempt to transfer one char
+ * Parameters   : uint8 TxChar - character to tx
+ * Returns      : OK if character was sent, FAIL otherwise
+*******************************************************************************/
+STATUS
+uart_try_tx_one_char(uint8 uart, uint8 c)
+{
+  //Check for room in the FIFO
+  if (((READ_PERI_REG(UART_STATUS(uart))>>UART_TXFIFO_CNT_S)&UART_TXFIFO_CNT)>=100)
+    return FAIL;
+  //Send the character
+  WRITE_PERI_REG(UART_FIFO(uart), c);
+  return OK;
+}
+
+/******************************************************************************
  * FunctionName : uart1_write_char
  * Description  : Internal used function
  *                Do some special deal while tx char is '\r' or '\n'

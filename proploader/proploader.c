@@ -137,9 +137,10 @@ static const uint8_t rxHandshake[] = {
     0xEE,0xCE,0xCF,0xCE,0xCE,0xCF,0xCE,0xEE,0xEF,0xEE,0xEF,0xEF,0xCF,0xEF,0xCE,0xCE,
     0xEF,0xCE,0xEE,0xCE,0xEF,0xCE,0xCE,0xEE,0xCF,0xCF,0xCE,0xCF,0xCF};
 
-static int startLoad(LoadType loadType, int imageSize);
-static int encodeBuffer(const uint8_t *buffer, int size);
-static void finishLoad(PropellerConnection *connection, int byteCount);
+static int startLoad(PropellerConnection *connection, LoadType loadType, int imageSize);
+static int encodeFile(PropellerConnection *connection, int *pFinished);
+static int encodeBuffer(PropellerConnection *connection, const uint8_t *buffer, int size);
+static void finishLoad(PropellerConnection *connection);
 
 int ICACHE_FLASH_ATTR ploadInitiateHandshake(PropellerConnection *connection)
 {
@@ -167,27 +168,39 @@ int ICACHE_FLASH_ATTR ploadVerifyHandshakeResponse(PropellerConnection *connecti
     return 0;
 }
 
-int ICACHE_FLASH_ATTR ploadLoadImage(PropellerConnection *connection, LoadType loadType)
+int ICACHE_FLASH_ATTR ploadLoadImage(PropellerConnection *connection, LoadType loadType, int *pFinished)
 {
-    int byteCount;
-
-    if (startLoad(loadType, connection->imageSize) != 0)
+    if (startLoad(connection, loadType, connection->imageSize) != 0)
         return -1;
+    return ploadLoadImageContinue(connection, loadType, pFinished);
+}
 
+int ICACHE_FLASH_ATTR ploadLoadImageContinue(PropellerConnection *connection, LoadType loadType, int *pFinished)
+{
     if (connection->image) {
-        if ((byteCount = encodeBuffer(connection->image, connection->imageSize)) == -1)
+        if (encodeBuffer(connection, connection->image, connection->imageSize) != 0)
             return -1;
         connection->image = NULL;
+        *pFinished = 1;
+    }
+    else if (connection->file) {
+        if (encodeFile(connection, pFinished) != 0)
+            return -1;
+        if (*pFinished) {
+            espFsClose(connection->file);
+            connection->file = NULL;
+        }
     }
     else
         return -1;
 
-    finishLoad(connection, byteCount);
-    
+    if (*pFinished)
+        finishLoad(connection);
+
     return 0;
 }
 
-static int startLoad(LoadType loadType, int imageSize)
+static int startLoad(PropellerConnection *connection, LoadType loadType, int imageSize)
 {
     switch (loadType) {
     case ltShutdown:
@@ -217,16 +230,44 @@ static int startLoad(LoadType loadType, int imageSize)
                                   | ((tmp & 4) << 4));
             tmp >>= 3;
         }
+
+        connection->encodedSize = 0;
     }
 
     return 0;
 }
 
-static int encodeBuffer(const uint8_t *buffer, int size)
+static int encodeFile(PropellerConnection *connection, int *pFinished)
+{
+    uint8_t buffer[LOAD_SEGMENT_MAX_SIZE];
+    int readSize;
+
+    if ((readSize = connection->imageSize) <= 0) {
+        *pFinished = 1;
+        return 0;
+    }
+
+    if (readSize > sizeof(buffer))
+        readSize = sizeof(buffer);
+
+    if (espFsRead(connection->file, (char *)buffer, readSize) != readSize)
+        return -1;
+
+    if (encodeBuffer(connection, buffer, readSize) != 0)
+        return -1;
+
+    if ((connection->imageSize -= readSize) == 0)
+        *pFinished = 1;
+    else
+        *pFinished = 0;
+
+    return 0;
+}
+
+static int encodeBuffer(PropellerConnection *connection, const uint8_t *buffer, int size)
 {
     static uint8_t masks[] = { 0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f };
     int bitCount = size * 8;
-    int byteCount = 0;
     int nextBit = 0;
 
     /* encode all bits in the input buffer */
@@ -244,18 +285,18 @@ static int encodeBuffer(const uint8_t *buffer, int size)
 
         /* transmit the encoded value */
         uart_tx_one_char(UART0, PDSTx[bits][bitsIn - 1].encoding);
-        ++byteCount;
+        ++connection->encodedSize;
 
         /* advance to the next group of bits */
         nextBit += PDSTx[bits][bitsIn - 1].bitCount;
     }
 
-    return byteCount;
+    return 0;
 }
 
-static void finishLoad(PropellerConnection *connection, int byteCount)
+static void finishLoad(PropellerConnection *connection)
 {
-    int tmp = (byteCount * 10 * 1000) / connection->baudRate;
+    int tmp = (connection->encodedSize * 10 * 1000) / connection->baudRate;
     connection->retriesRemaining = (tmp + 250) / CALIBRATE_DELAY;
     connection->retryDelay = CALIBRATE_DELAY;
 }

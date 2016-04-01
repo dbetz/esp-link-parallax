@@ -5,6 +5,7 @@
 #include <osapi.h>
 #include "os_type.h"
 #include "httpd.h"
+#include "espfs.h"
 
 #define PROP_DBG
 
@@ -22,12 +23,13 @@ typedef enum {
 } LoadType;
 
 typedef enum {
-/*  0 */    stIdle,
-/*  1 */    stReset1,
-/*  2 */    stReset2,
-/*  3 */    stTxHandshake,
-/*  4 */    stRxHandshake,
-/*  5 */    stVerifyChecksum,
+/* 0 */    stIdle,
+/* 1 */    stReset1,
+/* 2 */    stReset2,
+/* 3 */    stTxHandshake,
+/* 4 */    stRxHandshake,
+/* 5 */    stLoadContinue,
+/* 6 */    stVerifyChecksum,
             stMAX
 } LoadState;
 
@@ -38,8 +40,10 @@ typedef struct {
     int baudRate;
     int finalBaudRate;
     LoadType loadType;
+    EspFsFile *file;        // this is set for loading a file
     const uint8_t *image;   // this is set for loading an image in memory
     int imageSize;
+    int encodedSize;
     LoadState state;
     int retriesRemaining;
     int retryDelay;
@@ -59,6 +63,8 @@ typedef struct {
 #define RESET_DELAY_3                   100
 #define CALIBRATE_DELAY                 10
 
+#define LOAD_SEGMENT_MAX_SIZE           1024
+#define LOAD_SEGMENT_DELAY              50
 #define RX_HANDSHAKE_TIMEOUT            2000
 #define RX_CHECKSUM_TIMEOUT             250
 #define EEPROM_PROGRAM_TIMEOUT          5000
@@ -66,7 +72,8 @@ typedef struct {
 
 int ploadInitiateHandshake(PropellerConnection *connection);
 int ploadVerifyHandshakeResponse(PropellerConnection *connection, int *pVersion);
-int ploadLoadImage(PropellerConnection *connection, LoadType loadType);
+int ploadLoadImage(PropellerConnection *connection, LoadType loadType, int *pFinished);
+int ploadLoadImageContinue(PropellerConnection *connection, LoadType loadType, int *pFinished);
 
 #endif
 

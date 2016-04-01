@@ -15,6 +15,7 @@ void uart0_tx_buffer(char *buf, uint16 len);
 
 void uart0_write_char(char c);
 STATUS uart_tx_one_char(uint8 uart, uint8 c);
+STATUS uart_try_tx_one_char(uint8 uart, uint8 c);
 
 void uart1_write_char(char c);
 
