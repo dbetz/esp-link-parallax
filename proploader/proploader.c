@@ -7,6 +7,7 @@
 // the incoming bit size (again, usually 5), and the desired data element to retrieve (encoding = translation, bitCount = bit count
 // actually translated.
 
+#if 0
 // first index is the next 1-5 bits from the incoming bit stream
 // second index is the number of bits in the first value
 // the result is a structure containing the byte to output to encode some or all of the input bits
@@ -49,6 +50,7 @@ static struct {
   {            {0,    0},             {0,    0},             {0,    0},             {0,    0},  /*%11110*/ {0xAA, 4} },
   {            {0,    0},             {0,    0},             {0,    0},             {0,    0},  /*%11111*/ {0x55, 5} }
  };
+#endif
 
 // After reset, the Propeller's exact clock rate is not known by either the host or the Propeller itself, so communication
 // with the Propeller takes place based on a host-transmitted timing template that the Propeller uses to read the stream
