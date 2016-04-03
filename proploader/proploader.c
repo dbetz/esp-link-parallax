@@ -3,8 +3,6 @@
 #include "proploader.h"
 #include "uart.h"
 
-#define LENGTH_FIELD_SIZE       11          /* number of bytes in the length field */
-
 // Propeller Download Stream Translator array.  Index into this array using the "Binary Value" (usually 5 bits) to translate,
 // the incoming bit size (again, usually 5), and the desired data element to retrieve (encoding = translation, bitCount = bit count
 // actually translated.
@@ -141,6 +139,7 @@ static int startLoad(PropellerConnection *connection, LoadType loadType, int ima
 static int encodeFile(PropellerConnection *connection, int *pFinished);
 static int encodeBuffer(PropellerConnection *connection, const uint8_t *buffer, int size);
 static void finishLoad(PropellerConnection *connection);
+static void txLong(uint32_t x);
 
 int ICACHE_FLASH_ATTR ploadInitiateHandshake(PropellerConnection *connection)
 {
@@ -220,17 +219,7 @@ static int startLoad(PropellerConnection *connection, LoadType loadType, int ima
     }
     
     if (loadType != ltShutdown) {
-        int tmp, i;
-        
-        for (i = 0, tmp = imageSize / 4; i < LENGTH_FIELD_SIZE; ++i) {
-            uart_tx_one_char(UART0, 0x92 
-                                  | (i == 10 ? 0x60 : 0x00)
-                                  |  (tmp & 1)
-                                  | ((tmp & 2) << 2)
-                                  | ((tmp & 4) << 4));
-            tmp >>= 3;
-        }
-
+        txLong(imageSize / 4);
         connection->encodedSize = 0;
     }
 
@@ -266,6 +255,7 @@ static int encodeFile(PropellerConnection *connection, int *pFinished)
 
 static int encodeBuffer(PropellerConnection *connection, const uint8_t *buffer, int size)
 {
+#if 0
     static uint8_t masks[] = { 0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f };
     int bitCount = size * 8;
     int nextBit = 0;
@@ -290,6 +280,11 @@ static int encodeBuffer(PropellerConnection *connection, const uint8_t *buffer, 
         /* advance to the next group of bits */
         nextBit += PDSTx[bits][bitsIn - 1].bitCount;
     }
+#else
+    uint32_t *p = (uint32_t *)buffer;
+    while ((size -= sizeof(uint32_t)) >= 0)
+        txLong(*p++);
+#endif
 
     return 0;
 }
@@ -299,6 +294,19 @@ static void finishLoad(PropellerConnection *connection)
     int tmp = (connection->encodedSize * 10 * 1000) / connection->baudRate;
     connection->retriesRemaining = (tmp + 250) / CALIBRATE_DELAY;
     connection->retryDelay = CALIBRATE_DELAY;
+}
+
+static void txLong(uint32_t x)
+{
+    int i;
+    for (i = 0; i < 11; ++i) {
+        uart_tx_one_char(UART0, 0x92 
+                              | (i == 10 ? 0x60 : 0x00)
+                              |  (x & 1)
+                              | ((x & 2) << 2)
+                              | ((x & 4) << 4));
+        x >>= 3;
+    }
 }
 
 
