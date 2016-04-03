@@ -206,7 +206,7 @@ endif
 # which modules (subdirectories) of the project to include in compiling
 LIBRARIES_DIR 	= libraries
 MODULES		  	+= espfs httpd user serial cmd esp-link
-MODULES		  	+= proploader
+MODULES		  	+= proploader spiffs
 MODULES			+= $(foreach sdir,$(LIBRARIES_DIR),$(wildcard $(sdir)/*))
 EXTRA_INCDIR 	= include .
 
