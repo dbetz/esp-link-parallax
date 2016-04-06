@@ -52,6 +52,27 @@ int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, int *pVa
 // this is statically allocated because the serial read callback has no context parameter
 PropellerConnection myConnection;
 
+#if 1
+
+#include "spiffs.h"
+#include "spi_flash.h"
+
+// from spiffs_hal.c
+s32_t spiffs_hal_read(u32_t addr, u32_t size, u8_t *dst);
+s32_t spiffs_hal_write(u32_t addr, u32_t size, u8_t *src);
+s32_t spiffs_hal_erase(u32_t addr, u32_t size);
+
+void ICACHE_FLASH_ATTR _check_callback(spiffs_check_type type, spiffs_check_report report, u32_t arg1, u32_t arg2)
+{
+}
+
+static spiffs fs;
+static u8_t spiffs_work_buf[SPIFFS_CFG_LOG_PAGE_SZ() * 2];
+static u8_t spiffs_fds[32*4];
+//static u8_t spiffs_cache_buf[(SPIFFS_CFG_LOG_PAGE_SZ() + 32) * 4];
+
+#endif
+
 int ICACHE_FLASH_ATTR cgiPropInit()
 {
     memset(&myConnection, 0, sizeof(PropellerConnection));
@@ -61,6 +82,47 @@ int ICACHE_FLASH_ATTR cgiPropInit()
     gpio_output_set(0, 0, 0, 1 << RESET_BUTTON_PIN);
     os_timer_setfn(&resetButtonTimer, resetButtonTimerCallback, 0);
     os_timer_arm(&resetButtonTimer, RESET_BUTTON_SAMPLE_INTERVAL, 1);
+
+#if 1
+    spiffs_config c;
+    os_memset(&c, 0, sizeof(c));
+    c.hal_erase_f = spiffs_hal_erase;
+    c.hal_read_f = spiffs_hal_read;
+    c.hal_write_f = spiffs_hal_write;
+
+    //os_printf("flash id: %08x\n", spi_flash_get_id());
+    int sts = SPIFFS_mount(
+                &fs,
+                &c,
+                spiffs_work_buf,
+                spiffs_fds, sizeof(spiffs_fds),
+//                spiffs_cache_buf, sizeof(spiffs_cache_buf),
+                NULL, 0,
+                _check_callback);
+    if (sts != SPI_FLASH_RESULT_OK) {
+        os_printf("formatting filesystem\n");
+        sts = SPIFFS_format(&fs);
+        if (sts != SPI_FLASH_RESULT_OK)
+            os_printf("formatting failed: %d\n", fs.err_code);
+        else {
+            os_printf("formatting succeeded!\n");
+            sts = SPIFFS_mount(
+                        &fs,
+                        &c,
+                        spiffs_work_buf,
+                        spiffs_fds, sizeof(spiffs_fds),
+//                        spiffs_cache_buf, sizeof(spiffs_cache_buf),
+                        NULL, 0,
+                        _check_callback);
+            if (sts != SPI_FLASH_RESULT_OK)
+                os_printf("mounting failed: %d\n", fs.err_code);
+        }
+    }
+    if (sts == SPI_FLASH_RESULT_OK)
+        os_printf("mounting succeeded!\n");
+
+#endif
+
     return 1;
 }
 

@@ -212,6 +212,7 @@ EXTRA_INCDIR 	= include .
 
 ifneq (,$(findstring proploader,$(MODULES)))
 	CFLAGS		+= -DPROPLOADER
+    CFLAGS      += -DSPIFFS_FUNCTION_ATTR=ICACHE_FLASH_ATTR
 endif
 
 # libraries used in this project, mainly provided by the SDK

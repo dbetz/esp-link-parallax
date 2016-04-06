@@ -201,7 +201,7 @@ int ICACHE_FLASH_ATTR ploadLoadImageContinue(PropellerConnection *connection, Lo
     return 0;
 }
 
-static int startLoad(PropellerConnection *connection, LoadType loadType, int imageSize)
+static int ICACHE_FLASH_ATTR startLoad(PropellerConnection *connection, LoadType loadType, int imageSize)
 {
     switch (loadType) {
     case ltShutdown:
@@ -228,7 +228,7 @@ static int startLoad(PropellerConnection *connection, LoadType loadType, int ima
     return 0;
 }
 
-static int encodeFile(PropellerConnection *connection, int *pFinished)
+static int ICACHE_FLASH_ATTR encodeFile(PropellerConnection *connection, int *pFinished)
 {
     uint8_t buffer[LOAD_SEGMENT_MAX_SIZE];
     int readSize;
@@ -255,7 +255,7 @@ static int encodeFile(PropellerConnection *connection, int *pFinished)
     return 0;
 }
 
-static int encodeBuffer(PropellerConnection *connection, const uint8_t *buffer, int size)
+static int ICACHE_FLASH_ATTR encodeBuffer(PropellerConnection *connection, const uint8_t *buffer, int size)
 {
 #if 0
     static uint8_t masks[] = { 0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f };
@@ -291,14 +291,14 @@ static int encodeBuffer(PropellerConnection *connection, const uint8_t *buffer, 
     return 0;
 }
 
-static void finishLoad(PropellerConnection *connection)
+static void ICACHE_FLASH_ATTR finishLoad(PropellerConnection *connection)
 {
     int tmp = (connection->encodedSize * 10 * 1000) / connection->baudRate;
     connection->retriesRemaining = (tmp + 250) / CALIBRATE_DELAY;
     connection->retryDelay = CALIBRATE_DELAY;
 }
 
-static void txLong(uint32_t x)
+static void ICACHE_FLASH_ATTR txLong(uint32_t x)
 {
     int i;
     for (i = 0; i < 11; ++i) {

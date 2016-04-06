@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <os_type.h>
+#include <esp8266.h>
 
 typedef int s32_t;
 typedef unsigned int u32_t;
@@ -25,9 +26,29 @@ typedef uint16_t u16_t;
 typedef int8_t s8_t;
 typedef uint8_t u8_t;
 
+#define SPIFFS_GC_DBG(...) os_printf(__VA_ARGS__)
+#define SPIFFS_CACHE_DBG(...) os_printf(__VA_ARGS__)
+#define SPIFFS_CHECK_DBG(...) os_printf(__VA_ARGS__)
+
+#define SPIFFS_SINGLETON    1
+#define SPIFFS_USE_MAGIC    1
+#define SPIFFS_CACHE        0
+#define SPIFFS_CACHE_WR     0
+
+#define SPIFFS_CFG_PHYS_SZ(ignore)        (1024*1024*2)
+#define SPIFFS_CFG_PHYS_ERASE_SZ(ignore)  (4096)
+#define SPIFFS_CFG_PHYS_ADDR(ignore)      (0x100000)
+#define SPIFFS_CFG_LOG_PAGE_SZ(ignore)    (256)
+#define SPIFFS_CFG_LOG_BLOCK_SZ(ignore)   (64 * 1024)
+
 // ----------- >8 ------------
 
 // compile time switches
+
+// Function attributes required by the target
+#ifndef SPIFFS_FUNCTION_ATTR
+#define SPIFFS_FUNCTION_ATTR
+#endif
 
 // Set generic spiffs debug output call.
 #ifndef SPIFFS_DBG
@@ -222,7 +243,7 @@ typedef uint8_t u8_t;
 #endif
 #if SPIFFS_TEST_VISUALISATION
 #ifndef spiffs_printf
-#define spiffs_printf(...)                printf(__VA_ARGS__)
+#define spiffs_printf(...)                os_printf(__VA_ARGS__)
 #endif
 // spiffs_printf argument for a free page
 #ifndef SPIFFS_TEST_VIS_FREE_STR
