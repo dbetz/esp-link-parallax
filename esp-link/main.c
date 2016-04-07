@@ -35,6 +35,7 @@
 #ifdef PROPLOADER
 #include "cgiprop.h"
 #include "cgihttp.h"
+#include "httpdroffs.h"
 #endif
 
 #define NOTICE(format, ...) do {	                                          \
@@ -92,6 +93,7 @@ HttpdBuiltInUrl builtInUrls[] = {
   { "/propeller/load", cgiPropLoad, NULL },
   { "/propeller/load-file", cgiPropLoadFile, NULL },
   { "/propeller/reset", cgiPropReset, NULL },
+  { "/flash/*", cgiRoffsHook, NULL }, //Catch-all cgi function for the flash filesystem
   { "*", cgiHTTPHandleRequest, NULL }, //Check to see if MCU can handle the request
 #endif
   { "*", cgiEspFsHook, NULL }, //Catch-all cgi function for the filesystem
