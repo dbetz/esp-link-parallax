@@ -87,7 +87,7 @@ static struct {
 // The TxHandshake array consists of 209 bytes that are encoded to represent the required '1' and '0' timing template bits,
 // 250 bits representing the lowest bit values of 250 iterations of the Propeller LFSR (seeded with ASCII 'P'), 250 more
 // timing template bits to receive the Propeller's handshake response, and more to receive the version.
-static const uint8_t ICACHE_RODATA_ATTR txHandshake[] = {
+static const uint8_t txHandshake[] = {
     // First timing template ('1' and '0') plus first two bits of handshake ('0' and '1').
     0x49,
     // Remaining 248 bits of handshake...
@@ -110,24 +110,24 @@ static const uint8_t ICACHE_RODATA_ATTR txHandshake[] = {
     0x29,0x29,0x29,0x29};
 
 // Shutdown command (0); 11 bytes.
-static const uint8_t ICACHE_RODATA_ATTR shutdownCmd[] = {
+static const uint8_t shutdownCmd[] = {
     0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0xf2};
 
 // Load RAM and Run command (1); 11 bytes.
-static const uint8_t ICACHE_RODATA_ATTR loadRunCmd[] = {
+static const uint8_t loadRunCmd[] = {
     0xc9, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0xf2};
 
 // Load RAM, Program EEPROM, and Shutdown command (2); 11 bytes.
-static const uint8_t ICACHE_RODATA_ATTR programShutdownCmd[] = {
+static const uint8_t programShutdownCmd[] = {
     0xca, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0xf2};
 
 // Load RAM, Program EEPROM, and Run command (3); 11 bytes.
-static const uint8_t ICACHE_RODATA_ATTR programRunCmd[] = {
+static const uint8_t programRunCmd[] = {
     0x25, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0xfe};
 
 // The RxHandshake array consists of 125 bytes encoded to represent the expected 250-bit (125-byte @ 2 bits/byte) response
 // of continuing-LFSR stream bits from the Propeller, prompted by the timing templates following the TxHandshake stream.
-static const uint8_t ICACHE_RODATA_ATTR rxHandshake[] = {
+static const uint8_t rxHandshake[] = {
     0xEE,0xCE,0xCE,0xCF,0xEF,0xCF,0xEE,0xEF,0xCF,0xCF,0xEF,0xEF,0xCF,0xCE,0xEF,0xCF,
     0xEE,0xEE,0xCE,0xEE,0xEF,0xCF,0xCE,0xEE,0xCE,0xCF,0xEE,0xEE,0xEF,0xCF,0xEE,0xCE,
     0xEE,0xCE,0xEE,0xCF,0xEF,0xEE,0xEF,0xCE,0xEE,0xEE,0xCF,0xEE,0xCF,0xEE,0xEE,0xCF,
@@ -188,7 +188,7 @@ int ICACHE_FLASH_ATTR ploadLoadImageContinue(PropellerConnection *connection, Lo
         if (encodeFile(connection, pFinished) != 0)
             return -1;
         if (*pFinished) {
-            espFsClose(connection->file);
+            roffs_close(connection->file);
             connection->file = NULL;
         }
     }
@@ -241,7 +241,7 @@ static int ICACHE_FLASH_ATTR encodeFile(PropellerConnection *connection, int *pF
     if (readSize > sizeof(buffer))
         readSize = sizeof(buffer);
 
-    if (espFsRead(connection->file, (char *)buffer, readSize) != readSize)
+    if (roffs_read(connection->file, (char *)buffer, readSize) != readSize)
         return -1;
 
     if (encodeBuffer(connection, buffer, readSize) != 0)
