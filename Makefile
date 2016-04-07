@@ -206,7 +206,7 @@ endif
 # which modules (subdirectories) of the project to include in compiling
 LIBRARIES_DIR 	= libraries
 MODULES		  	+= espfs httpd user serial cmd esp-link
-MODULES		  	+= proploader spiffs
+MODULES		  	+= proploader # spiffs
 MODULES			+= $(foreach sdir,$(LIBRARIES_DIR),$(wildcard $(sdir)/*))
 EXTRA_INCDIR 	= include .
 
@@ -227,7 +227,7 @@ CFLAGS	+= -Os -ggdb -std=c99 -Werror -Wpointer-arith -Wundef -Wall -Wl,-EL -fno-
 		-DVERSION="$(VERSION)"
 
 # linker flags used to generate the main object file
-LDFLAGS		= -nostdlib -Wl,--no-check-sections -u call_user_start -Wl,-static -Wl,--gc-sections
+LDFLAGS		= -nostdlib -Wl,--no-check-sections -u call_user_start -Wl,-static -Wl,--gc-sections -Wl,-Map=firmware.map
 
 # linker script used for the above linker step
 LD_SCRIPT 	:= build/eagle.esphttpd.v6.ld

@@ -10,6 +10,8 @@
 #include "espfs.h"
 
 //#define STATE_DEBUG
+//#define SPIFFS_SUPPORT
+#define ROFFS_SUPPORT
 
 static ETSTimer resetButtonTimer;
 static int resetButtonState;
@@ -25,7 +27,7 @@ static void timerCallback(void *data);
 static void readCallback(char *buf, short length);
 
 /* the order here must match the definition of LoadState in proploader.h */
-static const char *stateNames[] = {
+static const char * ICACHE_RODATA_ATTR stateNames[] = {
     "Idle",
     "Reset1",
     "Reset2",
@@ -52,7 +54,7 @@ int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, int *pVa
 // this is statically allocated because the serial read callback has no context parameter
 PropellerConnection myConnection;
 
-#if 1
+#ifdef SPIFFS_SUPPORT
 
 #include "spiffs.h"
 #include "spi_flash.h"
@@ -83,7 +85,8 @@ int ICACHE_FLASH_ATTR cgiPropInit()
     os_timer_setfn(&resetButtonTimer, resetButtonTimerCallback, 0);
     os_timer_arm(&resetButtonTimer, RESET_BUTTON_SAMPLE_INTERVAL, 1);
 
-#if 1
+#ifdef SPIFFS_SUPPORT
+
     spiffs_config c;
     os_memset(&c, 0, sizeof(c));
     c.hal_erase_f = spiffs_hal_erase;
@@ -121,6 +124,29 @@ int ICACHE_FLASH_ATTR cgiPropInit()
     if (sts == SPI_FLASH_RESULT_OK)
         os_printf("mounting succeeded!\n");
 
+#endif
+
+#ifdef ROFFS_SUPPORT
+#include "roffs.h"
+    ROFFS_FILE file;
+    uint8_t buf[128];
+    int size;
+    if (roffs_mount(0x100000) != 0) {
+        os_printf("Mounting filesystem failed\n");
+        return 0;
+    }
+    os_printf("Filesystem mounted!\n");
+    if (roffs_open(&file, "hello.binary") != 0) {
+		os_printf("Opening file failed\n");
+		return 0;
+	}
+    os_printf("File opened\n");
+	if ((size = roffs_read(&file, buf, sizeof(buf) - 1)) == -1) {
+		os_printf("Reading file failed\n");
+		return 0;
+	}
+    buf[size] = '\0';
+    os_printf("got: %s\n", buf);
 #endif
 
     return 1;

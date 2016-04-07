@@ -1,4 +1,10 @@
 /*
+ spiffs_hal.c - SPI read/write/erase functions for SPIFFS.
+ This file is part of the SPIFFS support for ESP-LINK.
+ Modified from spiffs_hal.cpp by David Betz.
+*/
+
+/*
  spiffs_hal.cpp - SPI read/write/erase functions for SPIFFS.
  Copyright (c) 2015 Ivan Grokhotkov. All rights reserved.
  This file is part of the esp8266 core for Arduino environment.
