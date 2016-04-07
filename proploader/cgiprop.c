@@ -128,25 +128,11 @@ int ICACHE_FLASH_ATTR cgiPropInit()
 
 #ifdef ROFFS_SUPPORT
 #include "roffs.h"
-    ROFFS_FILE file;
-    uint8_t buf[128];
-    int size;
     if (roffs_mount(0x100000) != 0) {
-        os_printf("Mounting filesystem failed\n");
+        os_printf("Mounting flash filesystem failed\n");
         return 0;
     }
-    os_printf("Filesystem mounted!\n");
-    if (roffs_open(&file, "hello.binary") != 0) {
-		os_printf("Opening file failed\n");
-		return 0;
-	}
-    os_printf("File opened\n");
-	if ((size = roffs_read(&file, buf, sizeof(buf) - 1)) == -1) {
-		os_printf("Reading file failed\n");
-		return 0;
-	}
-    buf[size] = '\0';
-    os_printf("got: %s\n", buf);
+    os_printf("Flash filesystem mounted!\n");
 #endif
 
     return 1;

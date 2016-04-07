@@ -13,18 +13,90 @@ Connector to let httpd use the espfs filesystem to serve the files in it.
  * ----------------------------------------------------------------------------
  */
 #include "httpdespfs.h"
+#include "roffs.h"
 
 // The static files marked with FLAG_GZIP are compressed and will be served with GZIP compression.
 // If the client does not advertise that he accepts GZIP send following warning message (telnet users for e.g.)
 static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nServer: esp8266-httpd/"HTTPDVER"\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 52\r\n\r\nYour browser does not accept gzip-compressed data.\r\n";
 
+typedef struct {
+    int inFlash;
+    union {
+        EspFsFile *internalFile;
+        ROFFS_FILE *flashFile;
+    } file;
+} FILE_STATE;
+
+#define FLASH_PREFIX    "/flash/"
+
+static FILE_STATE ICACHE_FLASH_ATTR *openFile(char *fileName)
+{
+    FILE_STATE *fs;
+
+    if (!(fs = (FILE_STATE *)os_malloc(sizeof(FILE_STATE))))
+        return NULL;
+
+    if (os_strncmp(fileName, FLASH_PREFIX, strlen(FLASH_PREFIX)) == 0) {
+        fs->inFlash = 1;
+        if (!(fs->file.flashFile = roffs_open(&fileName[strlen(FLASH_PREFIX)]))) {
+            os_free(fs);
+            return NULL;
+        }
+    }
+    else {
+        fs->inFlash = 0;
+        if (!(fs->file.internalFile = espFsOpen(fileName))) {
+            os_free(fs);
+            return NULL;
+        }
+    }
+
+    return fs;
+}
+
+static int ICACHE_FLASH_ATTR closeFile(FILE_STATE *fs)
+{
+    int ret;
+
+    if (!fs)
+        return -1;
+
+    if (fs->inFlash)
+        ret = roffs_close(fs->file.flashFile);
+    else {
+        espFsClose(fs->file.internalFile);
+        ret = 0;
+    }
+
+    os_free(fs);
+
+    return ret;
+}
+
+static int ICACHE_FLASH_ATTR readFile(FILE_STATE *fs, char *buf, int len)
+{
+    if (!fs)
+        return -1;
+
+    return fs->inFlash ? roffs_read(fs->file.flashFile, buf, len)
+                       : espFsRead(fs->file.internalFile, buf, len);
+}
+
+static int ICACHE_FLASH_ATTR fileFlags(FILE_STATE *fs)
+{
+    if (!fs)
+        return -1;
+
+    return fs->inFlash ? roffs_file_flags(fs->file.flashFile)
+                       : espFsFlags(fs->file.internalFile);
+}
 
 //This is a catch-all cgi function. It takes the url passed to it, looks up the corresponding
 //path in the filesystem and if it exists, passes the file through. This simulates what a normal
 //webserver would do with static files.
 int ICACHE_FLASH_ATTR 
 cgiEspFsHook(HttpdConnData *connData) {
-	EspFsFile *file=connData->cgiData;
+	FILE_STATE *file=connData->cgiData;
 	int len;
 	char buff[1024];
 	char acceptEncodingBuffer[64];
@@ -34,13 +106,13 @@ cgiEspFsHook(HttpdConnData *connData) {
 
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
-		espFsClose(file);
+		closeFile(file);
 		return HTTPD_CGI_DONE;
 	}
 
 	if (file==NULL) {
 		//First call to this cgi. Open the file so we can read it.
-		file=espFsOpen(connData->url);
+		file=openFile(connData->url);
 		if (file==NULL) {
 			return HTTPD_CGI_NOTFOUND;
 		}
@@ -51,7 +123,7 @@ cgiEspFsHook(HttpdConnData *connData) {
 		// If there are no gzipped files in the image, the code bellow will not cause any harm.
 
 		// Check if requested file was GZIP compressed
-		isGzip = espFsFlags(file) & FLAG_GZIP;
+		isGzip = fileFlags(file) & FLAG_GZIP;
 		if (isGzip) {
 			// Check the browser's "Accept-Encoding" header. If the client does not
 			// advertise that he accepts GZIP send a warning message (telnet users for e.g.)
@@ -59,7 +131,7 @@ cgiEspFsHook(HttpdConnData *connData) {
 			if (os_strstr(acceptEncodingBuffer, "gzip") == NULL) {
 				//No Accept-Encoding: gzip header present
 				httpdSend(connData, gzipNonSupportedMessage, -1);
-				espFsClose(file);
+				closeFile(file);
 				return HTTPD_CGI_DONE;
 			}
 		}
@@ -75,11 +147,11 @@ cgiEspFsHook(HttpdConnData *connData) {
 		return HTTPD_CGI_MORE;
 	}
 
-	len=espFsRead(file, buff, 1024);
+	len=readFile(file, buff, 1024);
 	if (len>0) espconn_sent(connData->conn, (uint8 *)buff, len);
 	if (len!=1024) {
 		//We're done.
-		espFsClose(file);
+		closeFile(file);
 		return HTTPD_CGI_DONE;
 	} else {
 		//Ok, till next time.

@@ -2,6 +2,14 @@
 #include "espfsformat.h"
 #include "roffs.h"
 
+// open file structure
+struct ROFFS_FILE {
+    uint32_t start;
+    uint32_t offset;
+    uint32_t size;
+    uint8_t flags;
+};
+
 // initialize to an invalid address to indicate that no filesystem is mounted
 #define BAD_FILESYSTEM_BASE 3
 static uint32_t fsData = BAD_FILESYSTEM_BASE;
@@ -57,15 +65,16 @@ int ICACHE_FLASH_ATTR roffs_mount(uint32_t flashAddress)
     return 0;
 }
 
-int ICACHE_FLASH_ATTR roffs_open(ROFFS_FILE *file, const char *fileName)
+ROFFS_FILE ICACHE_FLASH_ATTR *roffs_open(const char *fileName)
 {
-	uint32_t p = fsData;
+    uint32_t p = fsData;
 	char namebuf[256];
+	ROFFS_FILE *file;
 	EspFsHeader h;
 
 	// make sure there is a filesystem mounted
     if (fsData == BAD_FILESYSTEM_BASE)
-		return -1;
+		return NULL;
 
 	// strip initial slashes
 	while (fileName[0] == '/')
@@ -76,28 +85,33 @@ int ICACHE_FLASH_ATTR roffs_open(ROFFS_FILE *file, const char *fileName)
 
 		// read the next file header
 		if (readFlash(&h, p, sizeof(EspFsHeader)) != 0)
-            return -1;
+            return NULL;
 		p += sizeof(EspFsHeader);
 
         // check the magic number
 		if (h.magic != ESPFS_MAGIC)
-            return -1;
+            return NULL;
 
 		// check for the end of image marker
         if (h.flags & FLAG_LASTFILE)
-            return -1;
+            return NULL;
 
 		// get the name of the file
 		if (readFlash(namebuf, p, sizeof(namebuf)) != 0)
-            return -1;
+            return NULL;
         p += h.nameLen;
 
 		// check to see if this is the file we're looking for
         if (os_strcmp(namebuf, fileName) == 0) {
+
+            /* allocate an open file structure */
+            if (!(file = (ROFFS_FILE *)os_malloc(sizeof(ROFFS_FILE))))
+                return NULL;
 			file->start = p;
 			file->offset = 0;
             file->size = h.fileLenComp;
-			return 0;
+            file->flags = h.flags;
+			return file;
 		}
 
 		// skip over the file data
@@ -108,10 +122,32 @@ int ICACHE_FLASH_ATTR roffs_open(ROFFS_FILE *file, const char *fileName)
 	}
 
     // file not found
-    return -1;
+    return NULL;
 }
 
-int ICACHE_FLASH_ATTR roffs_read(ROFFS_FILE *file, uint8_t *buf, int len)
+int ICACHE_FLASH_ATTR roffs_close(ROFFS_FILE *file)
+{
+    if (!file)
+        return -1;
+    os_free(file);
+    return 0;
+}
+
+int ICACHE_FLASH_ATTR roffs_file_size(ROFFS_FILE *file)
+{
+    if (!file)
+        return -1;
+    return (int)file->size;
+}
+
+int ICACHE_FLASH_ATTR roffs_file_flags(ROFFS_FILE *file)
+{
+    if (!file)
+        return -1;
+    return (int)file->flags;
+}
+
+int ICACHE_FLASH_ATTR roffs_read(ROFFS_FILE *file, char *buf, int len)
 {
 	int remaining = file->size - file->offset;
 
