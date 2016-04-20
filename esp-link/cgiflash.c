@@ -144,45 +144,83 @@ int ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 
 static ETSTimer flash_reboot_timer;
 
-// Handle request to reboot into the new firmware
-int ICACHE_FLASH_ATTR cgiRebootFirmware(HttpdConnData *connData) {
+static int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, int *pValue)
+{
+  char buf[16];
+  int len = httpdFindArg(connData->getArgs, name, buf, sizeof(buf));
+  if (len < 0) return 0; // not found, skip
+  *pValue = strtol(buf, NULL, 0);
+  return 1;
+}
+
+//===== Cgi that allows flash to be written via http POST
+int ICACHE_FLASH_ATTR cgiWriteFlash(HttpdConnData *connData) {
   if (connData->conn==NULL) return HTTPD_CGI_DONE; // Connection aborted. Clean up.
 
-  if (!canOTA()) {
-    errorResponse(connData, 400, flash_too_small);
+  int offset = connData->post->received - connData->post->buffLen;
+  if (offset == 0) {
+    connData->cgiPrivData = NULL;
+  } else if (connData->cgiPrivData != NULL) {
+    // we have an error condition, do nothing
     return HTTPD_CGI_DONE;
   }
 
-  // sanity-check that the 'next' partition actually contains something that looks like
-  // valid firmware
-  uint8 id = system_upgrade_userbin_check();
-  int address = id == 1 ? 4*1024                   // either start after 4KB boot partition
-      : 4*1024 + FIRMWARE_SIZE + 16*1024 + 4*1024; // 4KB boot, fw1, 16KB user param, 4KB reserved
-  uint32 buf[8];
-  DBG("Checking %p\n", (void *)address);
-  spi_flash_read(address, buf, sizeof(buf));
-  char *err = check_header(buf);
+  // assume no error yet...
+  char *err = NULL;
+  int code = 400;
+
+  // make sure we're buffering in 1024 byte chunks
+  if (err == NULL && offset % 1024 != 0) {
+    err = "Buffering problem";
+    code = 500;
+  }
+
+  // return an error if there is one
   if (err != NULL) {
-    DBG("Error %d: %s\n", 400, err);
-    httpdStartResponse(connData, 400);
+    DBG("Error %d: %s\n", code, err);
+    httpdStartResponse(connData, code);
     httpdHeader(connData, "Content-Type", "text/plain");
     //httpdHeader(connData, "Content-Length", strlen(err)+2);
     httpdEndHeaders(connData);
     httpdSend(connData, err, -1);
     httpdSend(connData, "\r\n", -1);
+    connData->cgiPrivData = (void *)1;
     return HTTPD_CGI_DONE;
   }
 
-  httpdStartResponse(connData, 200);
-  httpdHeader(connData, "Content-Length", "0");
-  httpdEndHeaders(connData);
+  // get the address to flash
+  int address;
+  if (!getIntArg(connData, "address", &address)) {
+    DBG("Error: no 'address' parameter\n");
+    httpdStartResponse(connData, code);
+    httpdHeader(connData, "Content-Type", "text/plain");
+    //httpdHeader(connData, "Content-Length", strlen(err)+2);
+    httpdEndHeaders(connData);
+    httpdSend(connData, err, -1);
+    httpdSend(connData, "\r\n", -1);
+    connData->cgiPrivData = (void *)1;
+    return HTTPD_CGI_DONE;
+  }
+  address += offset;
 
-  // Schedule a reboot
-  system_upgrade_flag_set(UPGRADE_FLAG_FINISH);
-  os_timer_disarm(&flash_reboot_timer);
-  os_timer_setfn(&flash_reboot_timer, (os_timer_func_t *)system_upgrade_reboot, NULL);
-  os_timer_arm(&flash_reboot_timer, 2000, 1);
-  return HTTPD_CGI_DONE;
+  // erase next flash block if necessary
+  if (address % SPI_FLASH_SEC_SIZE == 0){
+    DBG("Erasing 0x%05x\n", address);
+    spi_flash_erase_sector(address/SPI_FLASH_SEC_SIZE);
+  }
+
+  // Write the data
+  DBG("Writing %d bytes to 0x%05x (%d of %d)\n", connData->post->buffSize, address,
+  		connData->post->received, connData->post->len);
+  spi_flash_write(address, (uint32 *)connData->post->buff, connData->post->buffLen);
+
+  if (connData->post->received == connData->post->len){
+    httpdStartResponse(connData, 200);
+    httpdEndHeaders(connData);
+    return HTTPD_CGI_DONE;
+  } else {
+    return HTTPD_CGI_MORE;
+  }
 }
 
 int ICACHE_FLASH_ATTR cgiReset(HttpdConnData *connData) {

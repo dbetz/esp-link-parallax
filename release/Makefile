@@ -6,7 +6,9 @@ release/blank.bin
 FLASH_BLOCK_SIZE=1024
 
 # this rule doesn't seem to work but running build followed by zip does
-#all:	build zip
+all:
+	$(MAKE) build
+	$(MAKE) zip
 
 zip:	padded
 	cd release; zip ../esp-link *

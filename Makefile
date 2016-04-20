@@ -206,14 +206,15 @@ endif
 # which modules (subdirectories) of the project to include in compiling
 LIBRARIES_DIR 	= libraries
 MODULES		  	+= espfs httpd user serial cmd esp-link
-MODULES		  	+= proploader # spiffs
+#MODULES		  	+= proploader spiffs
+MODULES		  	+= proploader roffs
 MODULES			+= $(foreach sdir,$(LIBRARIES_DIR),$(wildcard $(sdir)/*))
 EXTRA_INCDIR 	= include .
 
 ifneq (,$(findstring proploader,$(MODULES)))
 	CFLAGS		+= -DPROPLOADER
-    CFLAGS      += -DSPIFFS_FUNCTION_ATTR=ICACHE_FLASH_ATTR
-    CFLAGS      += -DCHIP_IN_HOSTNAME
+#    CFLAGS      += -DSPIFFS -DSPIFFS_FUNCTION_ATTR=ICACHE_FLASH_ATTR
+    CFLAGS      += -DROFFS
 endif
 
 # libraries used in this project, mainly provided by the SDK

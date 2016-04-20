@@ -1,7 +1,6 @@
 #ifndef PROPLOADER_H
 #define PROPLOADER_H
 
-//#include <stdint.h>
 #include <osapi.h>
 #include "os_type.h"
 #include "httpd.h"

@@ -17,6 +17,8 @@ Esp8266 http server - core routines
 #include <esp8266.h>
 #include "httpd.h"
 
+#define HTTPD_DBG
+
 #ifdef HTTPD_DBG
 #define DBG(format, ...) do { os_printf(format, ## __VA_ARGS__); } while(0)
 #else
@@ -26,6 +28,7 @@ Esp8266 http server - core routines
 //Max length of request head
 #define MAX_HEAD_LEN 1024
 //Max amount of connections
+//#define MAX_CONN 6
 #define MAX_CONN 6
 //Max post buffer len
 #define MAX_POST 1024

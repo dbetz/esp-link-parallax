@@ -59,6 +59,7 @@ HttpdBuiltInUrl builtInUrls[] = {
   { "/flash/next", cgiGetFirmwareNext, NULL },
   { "/flash/upload", cgiUploadFirmware, NULL },
   { "/flash/reboot", cgiRebootFirmware, NULL },
+  { "/flash/write", cgiWriteFlash, NULL },
   { "/pgm/sync", cgiOptibootSync, NULL },
   { "/pgm/upload", cgiOptibootData, NULL },
   { "/log/text", ajaxLog, NULL },

@@ -12,8 +12,9 @@ Connector to let httpd use the espfs filesystem to serve the files in it.
  * Modified and enhanced by Thorsten von Eicken in 2015
  * ----------------------------------------------------------------------------
  */
-#include "httpdespfs.h"
+#include "httpdroffs.h"
 #include "roffs.h"
+#include "cgi.h"
 
 #define FLASH_PREFIX    "/flash/"
 
@@ -26,8 +27,8 @@ static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nSe
 //webserver would do with static files.
 int ICACHE_FLASH_ATTR 
 cgiRoffsHook(HttpdConnData *connData) {
-	ROFFS_FILE *file=connData->cgiData;
-	int len;
+	ROFFS_FILE *file = connData->cgiData;
+	int len=0;
 	char buff[1024];
 	char acceptEncodingBuffer[64];
 	int isGzip;
@@ -61,7 +62,7 @@ cgiRoffsHook(HttpdConnData *connData) {
 		// If there are no gzipped files in the image, the code bellow will not cause any harm.
 
 		// Check if requested file was GZIP compressed
-		isGzip = roffs_file_flags(file) & FLAG_GZIP;
+		isGzip = roffs_file_flags(file) & ROFFS_FLAG_GZIP;
 		if (isGzip) {
 			// Check the browser's "Accept-Encoding" header. If the client does not
 			// advertise that he accepts GZIP send a warning message (telnet users for e.g.)
@@ -74,7 +75,7 @@ cgiRoffsHook(HttpdConnData *connData) {
 			}
 		}
 
-		connData->cgiData=file;
+		connData->cgiData = file;
 		httpdStartResponse(connData, 200);
 		httpdHeader(connData, "Content-Type", httpdGetMimetype(connData->url));
 		if (isGzip) {

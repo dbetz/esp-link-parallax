@@ -38,8 +38,8 @@ typedef uint8_t u8_t;
 #define SPIFFS_CFG_PHYS_SZ(ignore)        (1024*1024*2)
 #define SPIFFS_CFG_PHYS_ERASE_SZ(ignore)  (4096)
 #define SPIFFS_CFG_PHYS_ADDR(ignore)      (0x100000)
-#define SPIFFS_CFG_LOG_PAGE_SZ(ignore)    (256)
-#define SPIFFS_CFG_LOG_BLOCK_SZ(ignore)   (64 * 1024)
+#define SPIFFS_CFG_LOG_PAGE_SZ(ignore)    (128)
+#define SPIFFS_CFG_LOG_BLOCK_SZ(ignore)   (32 * 1024)
 
 // ----------- >8 ------------
 
@@ -77,7 +77,7 @@ typedef uint8_t u8_t;
 // Enables/disable memory read caching of nucleus file system operations.
 // If enabled, memory area must be provided for cache in SPIFFS_mount.
 #ifndef  SPIFFS_CACHE
-#define SPIFFS_CACHE                    1
+#define SPIFFS_CACHE                    0
 #endif
 #if SPIFFS_CACHE
 // Enables memory write caching for file descriptors in hydrogen

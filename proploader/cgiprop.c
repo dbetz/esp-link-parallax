@@ -42,7 +42,7 @@ static const ICACHE_FLASH_ATTR char *stateName(LoadState state)
     return state >= 0 && state < stMAX ? stateNames[state] : "Unknown";
 }
 
-int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, int *pValue)
+static int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, int *pValue)
 {
   char buf[16];
   int len = httpdFindArg(connData->getArgs, name, buf, sizeof(buf));
@@ -145,7 +145,7 @@ int ICACHE_FLASH_ATTR cgiPropLoadFile(HttpdConnData *connData)
 {
     PropellerConnection *connection = &myConnection;
     char fileName[128];
-    int fileSize;
+    int fileSize = 0;
     
     // check for the cleanup call
     if (connData->conn == NULL) {
