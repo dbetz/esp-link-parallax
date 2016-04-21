@@ -1,5 +1,11 @@
 espload-*
 *~
+*.binary
+*.elf
+*.o
+*.exe
+*.zip
+*.map
 build/
 firmware/
 espfs/mkespfsimage/*.o
@@ -20,3 +26,5 @@ espfs/mkespfsimage/mman-win32/libmman.a
 tools/
 local.conf
 *.tgz
+release/pad
+release/release
