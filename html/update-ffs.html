@@ -6,6 +6,7 @@
 <style type='text/css'>
 body {
     font-family: sans-serif;
+    left-margin: 20px;
 }
 </style>
 <script type='text/javascript'>
@@ -36,7 +37,6 @@ body {
 
     function bodyAppend(tagName, innerHTML) {
         var elm;
-
         elm = document.createElement(tagName);
         elm.innerHTML = innerHTML;
         document.body.appendChild(elm);
@@ -52,7 +52,7 @@ body {
       };
 
       // Listen to the upload progress.
-      var progressBar = document.querySelector('progress');
+      var progressBar = document.getElementById('progress');
       req.upload.onprogress = function(e) {
         if (e.lengthComputable) {
           progressBar.value = (e.loaded / e.total) * 100;
@@ -66,13 +66,13 @@ body {
 </head>
 <body>
 <form action='#' onsubmit="return false;">
-<h1>Select a filesystem image to load and then click 'Load'.</h1>
+<h1>Select a filesystem image and then click 'Load'.</h1>
 <p>
   <input type='file' id='fileinput'>
   <input type='button' id='btnLoad' value='Load' onclick='loadFile();'>
 </p>
 <p>
-  <progress min="0" max="100" value="0">0% complete</progress>
+  <progress id='progress' min="0" max="100" value="0">0% complete</progress>
 </p>
 </form>
 </body>
