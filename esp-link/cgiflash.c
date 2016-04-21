@@ -19,6 +19,8 @@ Some flash handling cgi routines. Used for reading the existing flash and updati
 #include "cgi.h"
 #include "cgiflash.h"
 
+#define CGIFLASH_DBG
+
 #ifdef CGIFLASH_DBG
 #define DBG(format, ...) do { os_printf(format, ## __VA_ARGS__); } while(0)
 #else
@@ -142,8 +144,6 @@ int ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
   }
 }
 
-static ETSTimer flash_reboot_timer;
-
 static int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, int *pValue)
 {
   char buf[16];
@@ -221,6 +221,49 @@ int ICACHE_FLASH_ATTR cgiWriteFlash(HttpdConnData *connData) {
   } else {
     return HTTPD_CGI_MORE;
   }
+}
+
+static ETSTimer flash_reboot_timer;
+
+// Handle request to reboot into the new firmware
+int ICACHE_FLASH_ATTR cgiRebootFirmware(HttpdConnData *connData) {
+  if (connData->conn==NULL) return HTTPD_CGI_DONE; // Connection aborted. Clean up.
+
+  if (!canOTA()) {
+    errorResponse(connData, 400, flash_too_small);
+    return HTTPD_CGI_DONE;
+  }
+
+  // sanity-check that the 'next' partition actually contains something that looks like
+  // valid firmware
+  uint8 id = system_upgrade_userbin_check();
+  int address = id == 1 ? 4*1024                   // either start after 4KB boot partition
+      : 4*1024 + FIRMWARE_SIZE + 16*1024 + 4*1024; // 4KB boot, fw1, 16KB user param, 4KB reserved
+  uint32 buf[8];
+  DBG("Checking %p\n", (void *)address);
+  spi_flash_read(address, buf, sizeof(buf));
+  char *err = check_header(buf);
+  if (err != NULL) {
+    DBG("Error %d: %s\n", 400, err);
+    httpdStartResponse(connData, 400);
+    httpdHeader(connData, "Content-Type", "text/plain");
+    //httpdHeader(connData, "Content-Length", strlen(err)+2);
+    httpdEndHeaders(connData);
+    httpdSend(connData, err, -1);
+    httpdSend(connData, "\r\n", -1);
+    return HTTPD_CGI_DONE;
+  }
+
+  httpdStartResponse(connData, 200);
+  httpdHeader(connData, "Content-Length", "0");
+  httpdEndHeaders(connData);
+
+  // Schedule a reboot
+  system_upgrade_flag_set(UPGRADE_FLAG_FINISH);
+  os_timer_disarm(&flash_reboot_timer);
+  os_timer_setfn(&flash_reboot_timer, (os_timer_func_t *)system_upgrade_reboot, NULL);
+  os_timer_arm(&flash_reboot_timer, 2000, 1);
+  return HTTPD_CGI_DONE;
 }
 
 int ICACHE_FLASH_ATTR cgiReset(HttpdConnData *connData) {

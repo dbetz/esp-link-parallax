@@ -185,7 +185,7 @@ int handleFile(int f, char *name, int compression, int level, char **compName, o
 	}
 
 	//Fill header data
-	h.magic=('E'<<0)+('S'<<8)+('f'<<16)+('s'<<24);
+	h.magic=ROFS_MAGIC;
 	h.flags=flags;
 	h.compression=compression;
 	h.nameLen=nameLen=strlen(name)+1;
@@ -232,7 +232,7 @@ int handleFile(int f, char *name, int compression, int level, char **compName, o
 void finishArchive() {
 	RoFsHeader h;
     memset(&h, 0xff, sizeof(RoFsHeader));
-	h.magic=('E'<<0)+('S'<<8)+('f'<<16)+('s'<<24);
+	h.magic=ROFS_MAGIC;
 	write(1, &h, sizeof(RoFsHeader));
 }
 
