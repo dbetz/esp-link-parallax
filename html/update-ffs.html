@@ -1,0 +1,80 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+<title>Show File Data</title>
+<style type='text/css'>
+body {
+    font-family: sans-serif;
+}
+</style>
+<script type='text/javascript'>
+
+    function loadFile() {
+        var input, file, fr;
+
+        if (typeof window.FileReader !== 'function') {
+            //bodyAppend("p", "The file API isn't supported on this browser yet.");
+            //return;
+        }
+
+        input = document.getElementById('fileinput');
+        if (!input) {
+            bodyAppend("p", "Um, couldn't find the fileinput element.");
+        }
+        else if (!input.files) {
+            bodyAppend("p", "This browser doesn't seem to support the `files` property of file inputs.");
+        }
+        else if (!input.files[0]) {
+            bodyAppend("p", "Please select a file before clicking 'Load'");
+        }
+        else {
+            file = input.files[0];
+            updateFirmware(file);
+        }
+    }
+
+    function bodyAppend(tagName, innerHTML) {
+        var elm;
+
+        elm = document.createElement(tagName);
+        elm.innerHTML = innerHTML;
+        document.body.appendChild(elm);
+    }
+    
+    function updateFirmware(file) {
+      var req = new XMLHttpRequest();
+      req.open('POST', '/flash/write?address=0x100000', true);
+      req.onload = function(e) {
+        if (this.readyState == 4 && this.status == 200) {
+          bodyAppend("p", "Firmware Updated!");
+        }
+      };
+
+      // Listen to the upload progress.
+      var progressBar = document.querySelector('progress');
+      req.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+          progressBar.value = (e.loaded / e.total) * 100;
+          progressBar.textContent = progressBar.value; // Fallback for unsupported browsers.
+        }
+      };
+
+      req.send(file);
+    }
+</script>
+</head>
+<body>
+<form action='#' onsubmit="return false;">
+<h1>Select a filesystem image to load and then click 'Load'.</h1>
+<p>
+  <input type='file' id='fileinput'>
+  <input type='button' id='btnLoad' value='Load' onclick='loadFile();'>
+</p>
+<p>
+  <progress min="0" max="100" value="0">0% complete</progress>
+</p>
+</form>
+</body>
+</html>
+
