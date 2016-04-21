@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-<title>Show File Data</title>
+<title>Update Flash Filesystem</title>
 <style type='text/css'>
 body {
     font-family: sans-serif;
@@ -15,19 +15,19 @@ body {
         var input, file, fr;
 
         if (typeof window.FileReader !== 'function') {
-            //bodyAppend("p", "The file API isn't supported on this browser yet.");
+            //setMessage("The file API isn't supported on this browser yet.");
             //return;
         }
 
         input = document.getElementById('fileinput');
         if (!input) {
-            bodyAppend("p", "Um, couldn't find the fileinput element.");
+            setMessage("Couldn't find the fileinput element.");
         }
         else if (!input.files) {
-            bodyAppend("p", "This browser doesn't seem to support the `files` property of file inputs.");
+            setMesssage("This browser doesn't seem to support the `files` property of file inputs.");
         }
         else if (!input.files[0]) {
-            bodyAppend("p", "Please select a file before clicking 'Load'");
+            setMessage("No files selected.");
         }
         else {
             file = input.files[0];
@@ -35,23 +35,20 @@ body {
         }
     }
 
-    function bodyAppend(tagName, innerHTML) {
-        var elm;
-        elm = document.createElement(tagName);
-        elm.innerHTML = innerHTML;
-        document.body.appendChild(elm);
-    }
-    
+    function setMessage(msg) {
+        var message = document.getElementById('message');
+        message.innerHTML = msg;
+    };
+
     function updateFirmware(file) {
       var req = new XMLHttpRequest();
       req.open('POST', '/flash/write?address=0x100000', true);
       req.onload = function (e) {
         if (this.readyState == 4) {
-            message = document.getElementById('message');
             if (this.status == 200)
-                message.innerHTML = "Filesystem Updated!";
+                setMessage("Filesystem Updated!");
             else
-                message.innerHTML = "Filesystem Update Failed!";
+                setMessage("Filesystem Update Failed!");
         }
       };
 
