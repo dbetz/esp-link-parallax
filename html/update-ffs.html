@@ -45,15 +45,19 @@ body {
     function updateFirmware(file) {
       var req = new XMLHttpRequest();
       req.open('POST', '/flash/write?address=0x100000', true);
-      req.onload = function(e) {
-        if (this.readyState == 4 && this.status == 200) {
-          bodyAppend("p", "Firmware Updated!");
+      req.onload = function (e) {
+        if (this.readyState == 4) {
+            message = document.getElementById('message');
+            if (this.status == 200)
+                message.innerHTML = "Filesystem Updated!";
+            else
+                message.innerHTML = "Filesystem Update Failed!";
         }
       };
 
       // Listen to the upload progress.
       var progressBar = document.getElementById('progress');
-      req.upload.onprogress = function(e) {
+      req.upload.onprogress = function (e) {
         if (e.lengthComputable) {
           progressBar.value = (e.loaded / e.total) * 100;
           progressBar.textContent = progressBar.value; // Fallback for unsupported browsers.
@@ -66,13 +70,13 @@ body {
 </head>
 <body>
 <form action='#' onsubmit="return false;">
-<h1>Select a filesystem image and then click 'Load'.</h1>
+<h1>Select a Filesystem Image to Load</h1>
 <p>
-  <input type='file' id='fileinput'>
-  <input type='button' id='btnLoad' value='Load' onclick='loadFile();'>
+  <input type='file' id='fileinput' onchange='loadFile();'>
 </p>
 <p>
   <progress id='progress' min="0" max="100" value="0">0% complete</progress>
+  <p id='message'>&nbsp;</p>
 </p>
 </form>
 </body>
