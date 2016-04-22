@@ -15,13 +15,13 @@ with the FLAG_LASTFILE flag set.
 */
 
 
-#define FLAG_LASTFILE (1<<0)
-#define FLAG_GZIP (1<<1)
-#define FLAG_ACTIVE (1<<2)
-#define FLAG_PENDING (1<<3)
-#define COMPRESS_NONE 0
+#define FLAG_LASTFILE   (1 << 0)
+#define FLAG_GZIP       (1 << 1)
+#define FLAG_ACTIVE     (1 << 2)
+#define FLAG_PENDING    (1 << 3)
+#define COMPRESS_NONE   0
 #define COMPRESS_HEATSHRINK 1
-#define ROFS_MAGIC (('R'<<0)+('O'<<8)+('f'<<16)+('s'<<24))
+#define ROFS_MAGIC      ('R' | ('O' << 8) | ('f' << 16) | ('s' << 24))
 
 typedef struct {
 	int32_t magic;
