@@ -1,6 +1,7 @@
 IMAGES=\
 release/boot_v1.5.bin \
 release/user1.bin \
+release/user2.bin \
 release/blank.bin
 
 FLASH_BLOCK_SIZE=1024
