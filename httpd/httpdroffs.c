@@ -98,3 +98,48 @@ cgiRoffsHook(HttpdConnData *connData) {
 	}
 }
 
+typedef struct {
+    HttpdConnData *connData;
+} WRITE_STATE;
+
+WRITE_STATE writeState = { NULL };
+
+int ICACHE_FLASH_ATTR cgiRoffsWriteFile(HttpdConnData *connData)
+{
+    WRITE_STATE *state = &writeState;
+    char fileName[128];
+    int fileSize = 0;
+    
+    // check for the cleanup call
+    if (connData->conn == NULL) {
+        if (connection->file) {
+            roffs_close(connection->file);
+            connection->file = NULL;
+        }
+        return HTTPD_CGI_DONE;
+    }
+
+    if (state->connData) {
+        char buf[128];
+        os_sprintf(buf, "Flash filesystem write already in progress\r\n");
+        errorResponse(connData, 400, buf);
+        return HTTPD_CGI_DONE;
+    }
+    connData->cgiPrivData = state;
+    state->connData = connData;
+    
+    if (!getStringArg(connData, "file", fileName, sizeof(fileName))) {
+        errorResponse(connData, 400, "Missing file argument\r\n");
+        return HTTPD_CGI_DONE;
+    }
+    if (!getIntArg(connData, "size", &fileSize))
+        errorResponse(connData, 400, "Missing size argument\r\n");
+        return HTTPD_CGI_DONE;
+    }
+
+    DBG("write-file: file %s, size %d\n", fileName, fileSize);
+
+    startLoading(connection, NULL, fileSize);
+
+    return HTTPD_CGI_MORE;
+}

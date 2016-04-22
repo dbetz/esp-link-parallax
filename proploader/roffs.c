@@ -181,23 +181,23 @@ ROFFS_FILE ICACHE_FLASH_ATTR *roffs_open(const char *fileName)
         fileName++;
 
 	// find the file
-	while(1) {
+	for (;;) {
 
 		// read the next file header
 		if (readFlash(&h, p, sizeof(RoFsHeader)) != 0)
             return NULL;
 		p += sizeof(RoFsHeader);
 
-        // check the magic number
-		if (h.magic != ROFS_MAGIC)
-            return NULL;
-
 		// check for the end of image marker
         if (h.flags & FLAG_LASTFILE)
             return NULL;
 
-		// only check active files
-        if (h.flags & FLAG_ACTIVE) {
+        // check the magic number
+		if (h.magic != ROFS_MAGIC)
+            return NULL;
+
+		// only check active files that are not pending
+        if ((h.flags & FLAG_ACTIVE) && !(h.flags & FLAG_PENDING)) {
 
             // get the name of the file
 		    if (readFlash(namebuf, p, sizeof(namebuf)) != 0)
@@ -205,8 +205,6 @@ ROFFS_FILE ICACHE_FLASH_ATTR *roffs_open(const char *fileName)
 
 		    // check to see if this is the file we're looking for
             if (os_strcmp(namebuf, fileName) == 0) {
-
-                /* allocate an open file structure */
                 if (!(file = (ROFFS_FILE *)os_malloc(sizeof(ROFFS_FILE))))
                     return NULL;
 			    file->start = p + h.nameLen;
