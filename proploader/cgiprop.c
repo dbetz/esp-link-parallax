@@ -64,8 +64,9 @@ int ICACHE_FLASH_ATTR cgiPropInit()
     os_timer_setfn(&resetButtonTimer, resetButtonTimerCallback, 0);
     os_timer_arm(&resetButtonTimer, RESET_BUTTON_SAMPLE_INTERVAL, 1);
 
-    if (roffs_mount(FLASH_FILESYSTEM_BASE) != 0) {
-        os_printf("Mounting flash filesystem failed\n");
+    int ret;
+    if ((ret = roffs_mount(FLASH_FILESYSTEM_BASE)) != 0) {
+        os_printf("Mounting flash filesystem failed: %d\n", ret);
         return 0;
     }
     os_printf("Flash filesystem mounted!\n");

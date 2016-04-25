@@ -19,8 +19,6 @@ Some flash handling cgi routines. Used for reading the existing flash and updati
 #include "cgi.h"
 #include "cgiflash.h"
 
-#define CGIFLASH_DBG
-
 #ifdef CGIFLASH_DBG
 #define DBG(format, ...) do { os_printf(format, ## __VA_ARGS__); } while(0)
 #else

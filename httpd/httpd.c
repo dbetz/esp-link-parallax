@@ -17,8 +17,6 @@ Esp8266 http server - core routines
 #include <esp8266.h>
 #include "httpd.h"
 
-#define HTTPD_DBG
-
 #ifdef HTTPD_DBG
 #define DBG(format, ...) do { os_printf(format, ## __VA_ARGS__); } while(0)
 #else

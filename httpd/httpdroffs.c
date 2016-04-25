@@ -16,6 +16,14 @@ Connector to let httpd use the espfs filesystem to serve the files in it.
 #include "roffs.h"
 #include "cgi.h"
 
+#define HTTPDROFFS_DBG
+
+#ifdef HTTPDROFFS_DBG
+#define DBG(format, ...) os_printf(format, ## __VA_ARGS__)
+#else
+#define DBG(format, ...)
+#endif
+
 #define FLASH_PREFIX    "/flash/"
 
 // The static files marked with FLAG_GZIP are compressed and will be served with GZIP compression.
@@ -98,8 +106,18 @@ cgiRoffsHook(HttpdConnData *connData) {
 	}
 }
 
+static int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, int *pValue)
+{
+  char buf[16];
+  int len = httpdFindArg(connData->getArgs, name, buf, sizeof(buf));
+  if (len < 0) return 0; // not found, skip
+  *pValue = atoi(buf);
+  return 1;
+}
+
 typedef struct {
     HttpdConnData *connData;
+    ROFFS_FILE *file;
 } WRITE_STATE;
 
 WRITE_STATE writeState = { NULL };
@@ -112,9 +130,9 @@ int ICACHE_FLASH_ATTR cgiRoffsWriteFile(HttpdConnData *connData)
     
     // check for the cleanup call
     if (connData->conn == NULL) {
-        if (connection->file) {
-            roffs_close(connection->file);
-            connection->file = NULL;
+        if (state->file) {
+            roffs_close(state->file);
+            state->file = NULL;
         }
         return HTTPD_CGI_DONE;
     }
@@ -132,14 +150,17 @@ int ICACHE_FLASH_ATTR cgiRoffsWriteFile(HttpdConnData *connData)
         errorResponse(connData, 400, "Missing file argument\r\n");
         return HTTPD_CGI_DONE;
     }
-    if (!getIntArg(connData, "size", &fileSize))
+    if (!getIntArg(connData, "size", &fileSize)) {
         errorResponse(connData, 400, "Missing size argument\r\n");
         return HTTPD_CGI_DONE;
     }
 
-    DBG("write-file: file %s, size %d\n", fileName, fileSize);
+    if (!(state->file = roffs_create(fileName, fileSize))) {
+        errorResponse(connData, 400, "File not found\r\n");
+        return HTTPD_CGI_DONE;
+    }
 
-    startLoading(connection, NULL, fileSize);
+    DBG("write-file: file %s, size %d\n", fileName, fileSize);
 
     return HTTPD_CGI_MORE;
 }

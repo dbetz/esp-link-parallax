@@ -79,7 +79,7 @@ int ICACHE_FLASH_ATTR roffs_read(ROFFS_FILE *file, char *buf, int len)
     return SPIFFS_read(&fs, file->fd, buf, len);
 }
 
-ROFFS_FILE ICACHE_FLASH_ATTR *roffs_create(const char *fileName)
+ROFFS_FILE ICACHE_FLASH_ATTR *roffs_create(const char *fileName, int size)
 {
     ROFFS_FILE *file;
     spiffs_file fd;
@@ -124,19 +124,19 @@ static int ICACHE_FLASH_ATTR readFlash(void *buf, uint32_t addr, int size)
     uint32 longBuf;
 
     if (addr < alignedStart) {
-        if (spi_flash_read(alignedStart - 4, &longBuf, 4) != 0)
+        if (spi_flash_read(alignedStart - 4, &longBuf, 4) != SPI_FLASH_RESULT_OK)
             return -1;
         os_memcpy((uint8_t *)buf + 4 - alignedStartOffset, &longBuf, alignedStartOffset);
     }
 
     if (alignedSize > 0) {
         // this code assumes that spi_flash_read can read into a non-aligned buffer!
-        if (spi_flash_read(alignedStart, (uint32 *)buf + alignedStartOffset, alignedSize) != 0)
+        if (spi_flash_read(alignedStart, (uint32 *)buf + alignedStartOffset, alignedSize) != SPI_FLASH_RESULT_OK)
             return -1;
     }
 
     if (addr + size > alignedEnd) {
-        if (spi_flash_read(alignedEnd, &longBuf, 4) != 0)
+        if (spi_flash_read(alignedEnd, &longBuf, 4) != SPI_FLASH_RESULT_OK)
             return -1;
         os_memcpy((uint8_t *)buf + alignedEndOffset, &longBuf, size - alignedEndOffset);
     }
@@ -154,11 +154,11 @@ int ICACHE_FLASH_ATTR roffs_mount(uint32_t flashAddress)
 
 	// read the filesystem header (first file header)
 	if (readFlash(&testHeader, flashAddress, sizeof(RoFsHeader)) != 0)
-        return -1;
+        return -2;
 
     // check the magic number to make sure this is really a filesystem
 	if (testHeader.magic != ROFS_MAGIC)
-		return -1;
+		return -3;
 
 	// filesystem is mounted successfully
     fsData = flashAddress;
@@ -186,28 +186,27 @@ ROFFS_FILE ICACHE_FLASH_ATTR *roffs_open(const char *fileName)
 		// read the next file header
 		if (readFlash(&h, p, sizeof(RoFsHeader)) != 0)
             return NULL;
-		p += sizeof(RoFsHeader);
-
-		// check for the end of image marker
-        if (h.flags & FLAG_LASTFILE)
-            return NULL;
 
         // check the magic number
 		if (h.magic != ROFS_MAGIC)
+            return NULL;
+
+		// check for the end of image marker
+        if (h.flags & FLAG_LASTFILE)
             return NULL;
 
 		// only check active files that are not pending
         if ((h.flags & FLAG_ACTIVE) && !(h.flags & FLAG_PENDING)) {
 
             // get the name of the file
-		    if (readFlash(namebuf, p, sizeof(namebuf)) != 0)
+		    if (readFlash(namebuf, p + sizeof(RoFsHeader), sizeof(namebuf)) != 0)
                 return NULL;
 
 		    // check to see if this is the file we're looking for
             if (os_strcmp(namebuf, fileName) == 0) {
                 if (!(file = (ROFFS_FILE *)os_malloc(sizeof(ROFFS_FILE))))
                     return NULL;
-			    file->start = p + h.nameLen;
+			    file->start = p + sizeof(RoFsHeader) + h.nameLen;
 			    file->offset = 0;
                 file->size = h.fileLenComp;
                 file->flags = h.flags;
@@ -216,7 +215,7 @@ ROFFS_FILE ICACHE_FLASH_ATTR *roffs_open(const char *fileName)
         }
 
 		// skip over the file data
-		p += h.nameLen + h.fileLenComp;
+		p += sizeof(RoFsHeader) + h.nameLen + h.fileLenComp;
 
 		// align to next 32 bit offset
         p = (p + 3) & ~3;
@@ -230,6 +229,16 @@ int ICACHE_FLASH_ATTR roffs_close(ROFFS_FILE *file)
 {
     if (!file)
         return -1;
+
+    if (file->flags & FLAG_LASTFILE) {
+	    RoFsHeader h;
+        os_memset(&h, 0xff, sizeof(RoFsHeader));
+	    h.magic = ROFS_MAGIC;
+        file->offset = (file->offset + 3) & ~3;
+	    if (spi_flash_write(file->start + file->offset, (uint32 *)&h, sizeof(RoFsHeader)) != 0)
+            return -1;
+    }
+
     os_free(file);
     return 0;
 }
@@ -267,14 +276,120 @@ int ICACHE_FLASH_ATTR roffs_read(ROFFS_FILE *file, char *buf, int len)
 	return len;
 }
 
-ROFFS_FILE ICACHE_FLASH_ATTR *roffs_create(const char *fileName)
+#define NOT_FOUND   0xffffffff
+
+static int ICACHE_FLASH_ATTR find_file_and_insertion_point(const char *fileName, uint32_t *pFileOffset, uint32_t *pInsertionOffset)
 {
-    return NULL;
+    uint32_t p = fsData;
+	char namebuf[256];
+	RoFsHeader h;
+
+    // assume file won't be found
+    *pFileOffset = NOT_FOUND;
+
+	// make sure there is a filesystem mounted
+    if (fsData == BAD_FILESYSTEM_BASE)
+		return -1;
+
+	// strip initial slashes
+	while (fileName[0] == '/')
+        fileName++;
+
+	// find the file
+	for (;;) {
+
+		// read the next file header
+		if (readFlash(&h, p, sizeof(RoFsHeader)) != 0)
+            return -1;
+
+        // check the magic number
+		if (h.magic != ROFS_MAGIC)
+            return -1;
+
+		// check for the end of image marker
+        if (h.flags & FLAG_LASTFILE) {
+            *pInsertionOffset = p;
+            return 0;
+        }
+
+		// only check active files that are not pending
+        if ((h.flags & FLAG_ACTIVE) && !(h.flags & FLAG_PENDING)) {
+
+            // get the name of the file
+		    if (readFlash(namebuf, p + sizeof(RoFsHeader), sizeof(namebuf)) != 0)
+                return -1;
+
+		    // check to see if this is the file we're looking for
+            if (os_strcmp(namebuf, fileName) == 0)
+                *pFileOffset = p;
+        }
+
+		// skip over the file data
+		p += sizeof(RoFsHeader) + h.nameLen + h.fileLenComp;
+
+		// align to next 32 bit offset
+        p = (p + 3) & ~3;
+	}
+
+    // never reached
+    return -1;
+}
+
+ROFFS_FILE ICACHE_FLASH_ATTR *roffs_create(const char *fileName, int size)
+{
+    uint32_t fileOffset, insertionOffset;
+	ROFFS_FILE *file;
+	RoFsHeader h;
+
+    if (find_file_and_insertion_point(fileName, &fileOffset, &insertionOffset) != 0)
+        return NULL;
+
+    if (!(file = (ROFFS_FILE *)os_malloc(sizeof(ROFFS_FILE))))
+        return NULL;
+
+	// delete the old version of the file if one was found
+    if (fileOffset != NOT_FOUND) {
+        if (spi_flash_read(fileOffset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
+            os_free(file);
+            return NULL;
+        }
+        h.flags &= ~FLAG_ACTIVE;
+	    if (spi_flash_write(fileOffset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
+            os_free(file);
+            return NULL;
+        }
+    }
+
+	h.magic = ROFS_MAGIC;
+	h.flags = FLAG_ACTIVE | FLAG_PENDING;
+	h.compression = COMPRESS_NONE;
+	h.nameLen = (os_strlen(fileName) + 1 + 3) & ~3;
+	h.fileLenComp = size;
+	h.fileLenDecomp = size;
+
+    file->start = insertionOffset + sizeof(RoFsHeader) + h.nameLen;
+    file->offset = 0;
+    file->size = size;
+    file->flags = FLAG_LASTFILE;
+
+	if (spi_flash_write(insertionOffset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
+        os_free(file);
+        return NULL;
+    }
+	if (spi_flash_write(insertionOffset + sizeof(RoFsHeader), (uint32 *)fileName, h.nameLen) != SPI_FLASH_RESULT_OK) {
+        os_free(file);
+        return NULL;
+    }
+    
+    return file;
 }
 
 int ICACHE_FLASH_ATTR roffs_write(ROFFS_FILE *file, char *buf, int len)
 {
-    return -1;
+    if (spi_flash_write(file->start + file->offset, (uint32 *)buf, len) != 0)
+        return -1;
+    file->offset += len;
+    return len;
 }
 
 #endif

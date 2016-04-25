@@ -20,7 +20,6 @@ with the FLAG_LASTFILE flag set.
 #define FLAG_ACTIVE     (1 << 2)
 #define FLAG_PENDING    (1 << 3)
 #define COMPRESS_NONE   0
-#define COMPRESS_HEATSHRINK 1
 #define ROFS_MAGIC      ('R' | ('O' << 8) | ('f' << 16) | ('s' << 24))
 
 typedef struct {

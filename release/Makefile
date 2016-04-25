@@ -4,7 +4,7 @@ release/user1.bin \
 release/user2.bin \
 release/blank.bin
 
-FLASH_BLOCK_SIZE=1024
+CP=cp
 
 # this rule doesn't seem to work but running build followed by zip does
 all:
@@ -15,23 +15,26 @@ zip:	padded
 	cd release; zip ../esp-link *
 
 build:
-	$(MAKE) -C .. STA_SSID= STA_PASS= clean
+	$(MAKE) -C .. clean
 	$(MAKE) -C .. STA_SSID= STA_PASS=
 
 padded:	release $(IMAGES)
 	cp flash.sh release
 
-release/%:	../firmware/% pad
-	./pad $(FLASH_BLOCK_SIZE) <$< >$@
+release/%:	../firmware/%
+	$(CP) $< $@
 
-release/%:	../../esp_iot_sdk_v1.5.2/bin/% pad
-	./pad $(FLASH_BLOCK_SIZE) <$< >$@
+release/boot_v1.5.bin:	../../esp_iot_sdk_v1.5.2/bin/boot_v1.5.bin patch
+	./patch $< $@
+
+release/blank.bin:	../../esp_iot_sdk_v1.5.2/bin/blank.bin
+	$(CP) $< $@
 
 release:
 	mkdir -p release
 
-pad:	pad.c
-	cc -o pad pad.c
+patch:	patch.c
+	cc -o $@ $<
 
 clean:
-	rm -rf release pad esp-link.zip
+	rm -rf release patch esp-link.zip

@@ -5,13 +5,13 @@
 #include <_mingw.h>
 #endif
 
-#undef SHOW_HEAP_USE
+#define SHOW_HEAP_USE
 #define DEBUGIP
 #define SDK_DBG
 
 #define CMD_DBG
 #undef ESPFS_DBG
-#undef CGI_DBG
+#define CGI_DBG
 #define CGIFLASH_DBG
 #define CGIMQTT_DBG
 #define CGIPINS_DBG
@@ -19,7 +19,7 @@
 #define CONFIG_DBG
 #define LOG_DBG
 #define STATUS_DBG
-#undef HTTPD_DBG
+#define HTTPD_DBG
 #define MQTT_DBG
 #define MQTTCMD_DBG
 #undef PKTBUF_DBG
