@@ -18,7 +18,8 @@
 // - *console_wr == next char to write
 // - 0 <= console_xx < BUF_MAX
 // - (console_wr+1)%BUF_MAX) == console_rd <=> buffer full
-#define BUF_MAX (1024)
+//#define BUF_MAX (1024)
+#define BUF_MAX (128)
 static char console_buf[BUF_MAX];
 static int console_wr, console_rd;
 static int console_pos; // offset since reset of buffer

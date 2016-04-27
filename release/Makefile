@@ -19,7 +19,7 @@ build:
 	$(MAKE) -C .. STA_SSID= STA_PASS=
 
 padded:	release $(IMAGES)
-	cp flash.sh release
+	cp flash.sh reset-wifi.sh release
 
 release/%:	../firmware/%
 	$(CP) $< $@

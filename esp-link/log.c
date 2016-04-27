@@ -17,6 +17,7 @@
 // the HTTP handler simply displays the buffer content on a web page.
 
 // see console.c for invariants (same here)
+//#define BUF_MAX (128)
 #define BUF_MAX (1400)
 static char log_buf[BUF_MAX];
 static int log_wr, log_rd;
