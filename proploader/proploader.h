@@ -23,13 +23,14 @@ typedef enum {
 
 typedef enum {
 /* 0 */    stIdle,
-/* 1 */    stReset1,
-/* 2 */    stReset2,
-/* 3 */    stTxHandshake,
+/* 1 */    stReset,
+/* 2 */    stTxHandshake,
+/* 3 */    stRxHandshakeStart,
 /* 4 */    stRxHandshake,
 /* 5 */    stLoadContinue,
 /* 6 */    stVerifyChecksum,
-            stMAX
+/* 7 */    stStartAck, 
+           stMAX
 } LoadState;
 
 typedef struct {
@@ -38,6 +39,8 @@ typedef struct {
     int resetPin;
     int baudRate;
     int finalBaudRate;
+    int responseSize;
+    int responseTimeout;
     LoadType loadType;
     ROFFS_FILE *file;       // this is set for loading a file
     const uint8_t *image;   // this is set for loading an image in memory
@@ -58,8 +61,7 @@ typedef struct {
 #define RESET_BUTTON_PRESS_COUNT        4
 
 #define RESET_DELAY_1                   10
-#define RESET_DELAY_2                   10
-#define RESET_DELAY_3                   100
+#define RESET_DELAY_2                   100
 #define CALIBRATE_DELAY                 10
 
 #define LOAD_SEGMENT_MAX_SIZE           1024

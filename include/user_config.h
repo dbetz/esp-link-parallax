@@ -5,7 +5,7 @@
 #include <_mingw.h>
 #endif
 
-#define SHOW_HEAP_USE
+#undef SHOW_HEAP_USE
 #define DEBUGIP
 #define SDK_DBG
 
