@@ -15,7 +15,7 @@ zip:	padded
 	cd release; zip ../esp-link *
 
 build:
-	$(MAKE) -C .. clean
+	$(MAKE) -C .. STA_SSID= STA_PASS= clean
 	$(MAKE) -C .. STA_SSID= STA_PASS=
 
 padded:	release $(IMAGES)

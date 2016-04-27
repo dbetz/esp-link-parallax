@@ -10,7 +10,7 @@ FLASH_INTERFACE=qio
 #WIFI_SETTINGS=0xFE000
 
 #use for 4MB flash
-WIFI_SETTINGS=0x1FE000
+WIFI_SETTINGS=0x3FE000
 
 esptool \
 -cp $PORT \
@@ -21,4 +21,6 @@ esptool \
 -bm $FLASH_INTERFACE \
 -ca 0x00000 -cf boot_v1.5.bin \
 -ca 0x01000 -cf user1.bin \
+-ca 0x7e000 -cf blank.bin \
+-ca 0x7f000 -cf blank.bin \
 -ca $WIFI_SETTINGS -cf blank.bin
