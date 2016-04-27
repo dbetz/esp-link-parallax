@@ -341,20 +341,26 @@ ROFFS_FILE ICACHE_FLASH_ATTR *roffs_create(const char *fileName, int size)
 	ROFFS_FILE *file;
 	RoFsHeader h;
 
-    if (find_file_and_insertion_point(fileName, &fileOffset, &insertionOffset) != 0)
+    if (find_file_and_insertion_point(fileName, &fileOffset, &insertionOffset) != 0) {
+os_printf("create: can't find insertion point\n");
         return NULL;
+}
 
-    if (!(file = (ROFFS_FILE *)os_malloc(sizeof(ROFFS_FILE))))
+    if (!(file = (ROFFS_FILE *)os_malloc(sizeof(ROFFS_FILE)))) {
+os_printf("create: insufficient memory\n");
         return NULL;
+}
 
 	// delete the old version of the file if one was found
     if (fileOffset != NOT_FOUND) {
         if (spi_flash_read(fileOffset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
+os_printf("create: error reading old file header\n");
             os_free(file);
             return NULL;
         }
         h.flags &= ~FLAG_ACTIVE;
 	    if (spi_flash_write(fileOffset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
+os_printf("create: error writing old file header\n");
             os_free(file);
             return NULL;
         }
@@ -373,10 +379,12 @@ ROFFS_FILE ICACHE_FLASH_ATTR *roffs_create(const char *fileName, int size)
     file->flags = FLAG_LASTFILE;
 
 	if (spi_flash_write(insertionOffset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
+os_printf("create: error writing new file header\n");
         os_free(file);
         return NULL;
     }
 	if (spi_flash_write(insertionOffset + sizeof(RoFsHeader), (uint32 *)fileName, h.nameLen) != SPI_FLASH_RESULT_OK) {
+os_printf("create: error reading new file name\n");
         os_free(file);
         return NULL;
     }

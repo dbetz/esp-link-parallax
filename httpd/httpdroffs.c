@@ -45,7 +45,10 @@ cgiRoffsHook(HttpdConnData *connData) {
 
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
-		roffs_close(file);
+		if (file) {
+            roffs_close(file);
+            connData->cgiData = NULL;
+        }
 		return HTTPD_CGI_DONE;
 	}
 
@@ -115,52 +118,50 @@ static int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, i
   return 1;
 }
 
-typedef struct {
-    HttpdConnData *connData;
-    ROFFS_FILE *file;
-} WRITE_STATE;
-
-WRITE_STATE writeState = { NULL };
-
 int ICACHE_FLASH_ATTR cgiRoffsWriteFile(HttpdConnData *connData)
 {
-    WRITE_STATE *state = &writeState;
+    ROFFS_FILE *file = connData->cgiData;
     char fileName[128];
     int fileSize = 0;
     
     // check for the cleanup call
     if (connData->conn == NULL) {
-        if (state->file) {
-            roffs_close(state->file);
-            state->file = NULL;
+		if (file) {
+            roffs_close(file);
+            connData->cgiData = NULL;
         }
         return HTTPD_CGI_DONE;
     }
-
-    if (state->connData) {
-        char buf[128];
-        os_sprintf(buf, "Flash filesystem write already in progress\r\n");
-        errorResponse(connData, 400, buf);
-        return HTTPD_CGI_DONE;
-    }
-    connData->cgiPrivData = state;
-    state->connData = connData;
     
-    if (!getStringArg(connData, "file", fileName, sizeof(fileName))) {
-        errorResponse(connData, 400, "Missing file argument\r\n");
-        return HTTPD_CGI_DONE;
-    }
-    if (!getIntArg(connData, "size", &fileSize)) {
-        errorResponse(connData, 400, "Missing size argument\r\n");
-        return HTTPD_CGI_DONE;
+    // open the file on the first call
+    if (!file) {
+
+        if (!getStringArg(connData, "file", fileName, sizeof(fileName))) {
+            errorResponse(connData, 400, "Missing file argument\r\n");
+            return HTTPD_CGI_DONE;
+        }
+        if (!getIntArg(connData, "size", &fileSize)) {
+            errorResponse(connData, 400, "Missing size argument\r\n");
+            return HTTPD_CGI_DONE;
+        }
+
+        if (!(file = roffs_create(fileName, fileSize))) {
+            errorResponse(connData, 400, "File not created\r\n");
+            return HTTPD_CGI_DONE;
+        }
+        connData->cgiData = file;
+
+        DBG("write-file: file %s, size %d\n", fileName, fileSize);
     }
 
-    if (!(state->file = roffs_create(fileName, fileSize))) {
-        errorResponse(connData, 400, "File not found\r\n");
-        return HTTPD_CGI_DONE;
+    // append data to the file
+    if (connData->post->buffLen > 0) {
+        int roundedLen = (connData->post->buffLen + 3) & ~3;
+        if (roffs_write(file, connData->post->buff, roundedLen) != roundedLen) {
+            errorResponse(connData, 400, "File write failed\r\n");
+            return HTTPD_CGI_DONE;
+        }
     }
 
-    DBG("write-file: file %s, size %d\n", fileName, fileSize);
-
-    return HTTPD_CGI_MORE;
+    return connData->post->received == connData->post->len ? HTTPD_CGI_DONE : HTTPD_CGI_MORE;
 }

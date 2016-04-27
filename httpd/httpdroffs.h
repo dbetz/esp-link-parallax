@@ -5,5 +5,6 @@
 #include "httpd.h"
 
 int cgiRoffsHook(HttpdConnData *connData);
+int cgiRoffsWriteFile(HttpdConnData *connData);
 
 #endif
