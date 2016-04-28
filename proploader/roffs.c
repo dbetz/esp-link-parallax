@@ -147,16 +147,40 @@ static int ICACHE_FLASH_ATTR readFlash(uint32_t addr, void *buf, int size)
 
 static int writeFlash(uint32_t addr, void *buf, int size)
 {
+    uint32_t sectorMask = SPI_FLASH_SEC_SIZE - 1;
+    uint32_t sectorAddr = addr & ~sectorMask;
+    uint8_t *p = buf;
 os_printf("writeFlash: %08lx %d\n", addr, size);
-    if ((addr  % SPI_FLASH_SEC_SIZE) == 0) {
-        if (spi_flash_erase_sector(addr / SPI_FLASH_SEC_SIZE) != SPI_FLASH_RESULT_OK) {
+    if (addr == sectorAddr) {
+os_printf("writeFlash: erase %08lx\n", sectorAddr);
+        if (spi_flash_erase_sector(sectorAddr / SPI_FLASH_SEC_SIZE) != SPI_FLASH_RESULT_OK) {
 os_printf("writeFlash: erase failed\n");
             return SPI_FLASH_RESULT_ERR;
         }
     }
-    if (spi_flash_write(addr, (uint32 *)buf, size) != SPI_FLASH_RESULT_OK) {
+    while (sectorAddr + SPI_FLASH_SEC_SIZE < addr + size) {
+        int writeSize = sectorAddr + SPI_FLASH_SEC_SIZE - addr;
+os_printf("writeFlash: write %08lx %d\n", addr, writeSize);
+        if (spi_flash_write(addr, (uint32 *)p, writeSize) != SPI_FLASH_RESULT_OK) {
 os_printf("writeFlash: write failed\n");
-        return SPI_FLASH_RESULT_ERR;
+            return SPI_FLASH_RESULT_ERR;
+        }
+        addr += writeSize;
+        size -= writeSize;
+        p += writeSize;
+        sectorAddr = addr & ~sectorMask;
+os_printf("writeFlash: erase %08lx\n", sectorAddr);
+        if (spi_flash_erase_sector(sectorAddr / SPI_FLASH_SEC_SIZE) != SPI_FLASH_RESULT_OK) {
+os_printf("writeFlash: erase failed\n");
+            return SPI_FLASH_RESULT_ERR;
+        }
+    }
+    if (size > 0) {
+os_printf("writeFlash: write %08lx %d\n", addr, size);
+        if (spi_flash_write(addr, (uint32 *)p, size) != SPI_FLASH_RESULT_OK) {
+os_printf("writeFlash: write failed\n");
+            return SPI_FLASH_RESULT_ERR;
+        }
     }
     return SPI_FLASH_RESULT_OK;
 }
