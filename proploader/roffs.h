@@ -3,6 +3,8 @@
 
 #include <esp8266.h>
 
+#define FLASH_FILESYSTEM_BASE   0x100000
+
 /* must match definitions in roffsformat.h */
 #define ROFFS_FLAG_GZIP (1<<1)
 
@@ -17,6 +19,7 @@ typedef struct ROFFS_FILE_STRUCT ROFFS_FILE;
 #endif
 
 int roffs_mount(uint32_t flashAddress);
+int roffs_format(uint32_t flashAddress);
 ROFFS_FILE *roffs_open(const char *fileName);
 int roffs_file_size(ROFFS_FILE *file);
 int roffs_file_flags(ROFFS_FILE *file);

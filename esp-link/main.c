@@ -60,6 +60,7 @@ HttpdBuiltInUrl builtInUrls[] = {
   { "/flash/upload", cgiUploadFirmware, NULL },
   { "/flash/reboot", cgiRebootFirmware, NULL },
   { "/flash/write", cgiWriteFlash, NULL },
+  { "/flash/format", cgiRoffsFormat, NULL },
   { "/flash/write-file", cgiRoffsWriteFile, NULL },
   { "/pgm/sync", cgiOptibootSync, NULL },
   { "/pgm/upload", cgiOptibootData, NULL },

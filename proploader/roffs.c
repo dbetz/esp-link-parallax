@@ -148,8 +148,14 @@ static int ICACHE_FLASH_ATTR readFlash(uint32_t addr, void *buf, int size)
 static int writeFlash(uint32_t addr, void *buf, int size)
 {
 os_printf("writeFlash: %08lx %d\n", addr, size);
+    if ((addr  % SPI_FLASH_SEC_SIZE) == 0) {
+        if (spi_flash_erase_sector(addr / SPI_FLASH_SEC_SIZE) != SPI_FLASH_RESULT_OK) {
+os_printf("writeFlash: erase failed\n");
+            return SPI_FLASH_RESULT_ERR;
+        }
+    }
     if (spi_flash_write(addr, (uint32 *)buf, size) != SPI_FLASH_RESULT_OK) {
-os_printf("writeFlash: failed\n");
+os_printf("writeFlash: write failed\n");
         return SPI_FLASH_RESULT_ERR;
     }
     return SPI_FLASH_RESULT_OK;
@@ -183,6 +189,18 @@ int ICACHE_FLASH_ATTR roffs_mount(uint32_t flashAddress)
 
 	// filesystem is mounted successfully
     fsData = flashAddress;
+    return 0;
+}
+
+int ICACHE_FLASH_ATTR roffs_format(uint32_t flashAddress)
+{
+	RoFsHeader h;
+    os_memset(&h, 0xff, sizeof(RoFsHeader));
+    h.magic = ROFS_MAGIC;
+    if (writeFlash(flashAddress, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
+os_printf("format: error writing terminator\n");
+        return -1;
+    }
     return 0;
 }
 

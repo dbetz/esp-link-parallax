@@ -11,8 +11,6 @@
 
 //#define STATE_DEBUG
 
-#define FLASH_FILESYSTEM_BASE   0x100000
-
 static ETSTimer resetButtonTimer;
 static int resetButtonState;
 static int resetButtonCount;

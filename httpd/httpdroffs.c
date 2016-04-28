@@ -131,6 +131,18 @@ static void ICACHE_FLASH_ATTR httpdSendResponse(HttpdConnData *connData, int cod
     connData->cgi = NULL;
 }
 
+int ICACHE_FLASH_ATTR cgiRoffsFormat(HttpdConnData *connData)
+{
+    if (connData->conn == NULL)
+        return HTTPD_CGI_DONE;
+    if (roffs_format(FLASH_FILESYSTEM_BASE) != 0) {
+        errorResponse(connData, 400, "Error formatting filesystem\r\n");
+        return HTTPD_CGI_DONE;
+    }
+    httpdSendResponse(connData, 200, "", -1);
+    return HTTPD_CGI_DONE;
+}
+
 int ICACHE_FLASH_ATTR cgiRoffsWriteFile(HttpdConnData *connData)
 {
     ROFFS_FILE *file = connData->cgiData;
