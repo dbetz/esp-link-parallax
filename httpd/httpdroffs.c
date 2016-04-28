@@ -24,7 +24,7 @@ Connector to let httpd use the espfs filesystem to serve the files in it.
 #define DBG(format, ...)
 #endif
 
-#define FLASH_PREFIX    "/flash/"
+#define FLASH_PREFIX    "/files/"
 
 // The static files marked with FLAG_GZIP are compressed and will be served with GZIP compression.
 // If the client does not advertise that he accepts GZIP send following warning message (telnet users for e.g.)
