@@ -1,4 +1,10 @@
 PORT=/dev/ttyUSB0
+if [ ! -z $1 ]
+then
+  PORT=$1
+fi
+echo Using port $PORT
+
 BAUD=115200
 BOARD=none # none, ck, nodemcu, wifio
 FLASH_SIZE=4M
