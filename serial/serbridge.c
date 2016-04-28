@@ -11,6 +11,7 @@
 #include "slip.h"
 #include "cmd.h"
 #include "syslog.h"
+#include "sscp.h"
 
 #define SKIP_AT_RESET
 
@@ -347,7 +348,7 @@ console_process(char *buf, short len)
 
 // callback with a buffer of characters that have arrived on the uart
 void ICACHE_FLASH_ATTR
-serbridgeUartCb(char *buf, short length)
+serialFilterCb(void *data, char *buf, short length)
 {
 #if 0
   if (!programmingCB) {
@@ -358,14 +359,24 @@ serbridgeUartCb(char *buf, short length)
     os_printf("\n");
   }
 #endif
-  if (programmingCB) {
-    programmingCB(buf, length);
-  } else if (!flashConfig.slip_enable || slip_disabled > 0) {
+  if (!flashConfig.slip_enable || slip_disabled > 0) {
     //os_printf("SLIP: disabled got %d\n", length);
     console_process(buf, length);
   } else {
     slip_parse_buf(buf, length);
   }
+
+  serledFlash(50); // short blink on serial LED
+}
+
+// callback with a buffer of characters that have arrived on the uart
+void ICACHE_FLASH_ATTR
+serbridgeUartCb(char *buf, short length)
+{
+  if (programmingCB)
+    programmingCB(buf, length);
+  else
+    sscp_filter(buf, length, serialFilterCb, NULL);
 
   serledFlash(50); // short blink on serial LED
 }
