@@ -151,6 +151,8 @@ static int writeFlash(uint32_t addr, void *buf, int size)
     uint32_t sectorAddr = addr & ~sectorMask;
     uint8_t *p = buf;
 os_printf("writeFlash: %08lx %d\n", addr, size);
+
+    // erase the sector if the write begins on a sector boundary
     if (addr == sectorAddr) {
 os_printf("writeFlash: erase %08lx\n", sectorAddr);
         if (spi_flash_erase_sector(sectorAddr / SPI_FLASH_SEC_SIZE) != SPI_FLASH_RESULT_OK) {
@@ -158,16 +160,24 @@ os_printf("writeFlash: erase failed\n");
             return SPI_FLASH_RESULT_ERR;
         }
     }
+    
+    // write each sector or partial sector
     while (sectorAddr + SPI_FLASH_SEC_SIZE < addr + size) {
         int writeSize = sectorAddr + SPI_FLASH_SEC_SIZE - addr;
+        
+        // write the next sector or partial sector
 os_printf("writeFlash: write %08lx %d\n", addr, writeSize);
         if (spi_flash_write(addr, (uint32 *)p, writeSize) != SPI_FLASH_RESULT_OK) {
 os_printf("writeFlash: write failed\n");
             return SPI_FLASH_RESULT_ERR;
         }
+        
+        // move ahead to the next sector
         addr += writeSize;
         size -= writeSize;
         p += writeSize;
+        
+        // erase the next sector
         sectorAddr = addr & ~sectorMask;
 os_printf("writeFlash: erase %08lx\n", sectorAddr);
         if (spi_flash_erase_sector(sectorAddr / SPI_FLASH_SEC_SIZE) != SPI_FLASH_RESULT_OK) {
@@ -175,6 +185,8 @@ os_printf("writeFlash: erase failed\n");
             return SPI_FLASH_RESULT_ERR;
         }
     }
+    
+    // write the last partial sector
     if (size > 0) {
 os_printf("writeFlash: write %08lx %d\n", addr, size);
         if (spi_flash_write(addr, (uint32 *)p, size) != SPI_FLASH_RESULT_OK) {
@@ -182,6 +194,7 @@ os_printf("writeFlash: write failed\n");
             return SPI_FLASH_RESULT_ERR;
         }
     }
+    
     return SPI_FLASH_RESULT_OK;
 }
 
