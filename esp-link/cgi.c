@@ -213,6 +213,9 @@ int ICACHE_FLASH_ATTR cgiMenu(HttpdConnData *connData) {
 #ifdef MQTT
         "\"REST/MQTT\", \"/mqtt.html\", "
 #endif
+#ifdef PROPLOADER
+        "\"Files\", \"/update-ffs.html\", "
+#endif
         "\"Debug log\", \"/log.html\""
       " ], "
       "\"version\": \"%s\", "

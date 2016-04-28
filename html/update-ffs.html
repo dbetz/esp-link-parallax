@@ -1,81 +1,132 @@
-<!DOCTYPE HTML>
-<html>
-<head>
-<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-<title>Update Flash Filesystem</title>
-<style type='text/css'>
-body {
-    font-family: sans-serif;
-    margin-left: 20px;
-}
-</style>
+  <div id="main">
+    <div class="header">
+      <h1>File Management</h1>
+    </div>
+
+    <div class="content">
+      <form action='#' onsubmit="return false;">
+        <h1>Select a Filesystem Image to Load</h1>
+        <p>
+          <input type='file' id='filesystem-input' onchange='on_loadFilesystem();'>
+        </p>
+        <h1>Select a File to Load</h1>
+        <p>
+          <input type='file' id='file-input' onchange='on_loadFile();'>
+        </p>
+        <h1>Empty the Filesystem</h1>
+        <p>
+          <input type='button' id='filesystem-empty' value='Empty' onclick='on_emptyFilesystem();'>
+        </p>
+        <h1>Progress</h1>
+        <p>
+          <progress id='progress' min="0" max="100" value="0">0% complete</progress>
+          <p id='message'>&nbsp;</p>
+        </p>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script type='text/javascript'>
 
-    function loadFile() {
-        var input, file, fr;
+function on_loadFilesystem() {
+    var input, file, fr;
+    input = document.getElementById('filesystem-input');
+    if (!input)
+        setMessage("Couldn't find the filesystem-input element.");
+    else if (!input.files[0])
+        setMessage("No files selected.");
+    else
+        loadFilesystem(input.files[0]);
+}
 
-        if (typeof window.FileReader !== 'function') {
-            //setMessage("The file API isn't supported on this browser yet.");
-            //return;
-        }
+function on_loadFile() {
+    var input, file, fr;
+    input = document.getElementById('file-input');
+    if (!input)
+        setMessage("Couldn't find the file-input element.");
+    else if (!input.files[0])
+        setMessage("No files selected.");
+    else
+        loadFile(input.files[0]);
+}
 
-        input = document.getElementById('fileinput');
-        if (!input) {
-            setMessage("Couldn't find the fileinput element.");
-        }
-        else if (!input.files) {
-            setMesssage("This browser doesn't seem to support the `files` property of file inputs.");
-        }
-        else if (!input.files[0]) {
-            setMessage("No files selected.");
-        }
-        else {
-            file = input.files[0];
-            updateFirmware(file);
-        }
+function on_emptyFilesystem() {
+    emptyFilesystem();
+}
+
+function setMessage(msg) {
+    var message = document.getElementById('message');
+    message.innerHTML = msg;
+};
+
+function loadFilesystem(file) {
+
+  var req = new XMLHttpRequest();
+  req.open('POST', '/flash/write?address=0x100000', true);
+  req.onload = function (e) {
+    if (this.readyState == 4) {
+        if (this.status == 200)
+            setMessage("Filesystem Loaded!");
+        else
+            setMessage("Filesystem Load Failed!");
     }
+  };
 
-    function setMessage(msg) {
-        var message = document.getElementById('message');
-        message.innerHTML = msg;
-    };
+  var progressBar = document.getElementById('progress');
+  req.upload.onprogress = function (e) {
+    if (e.lengthComputable)
+      progressBar.value = (e.loaded / e.total) * 100;
+  };
 
-    function updateFirmware(file) {
-      var req = new XMLHttpRequest();
-      req.open('POST', '/flash/write?address=0x100000', true);
-      req.onload = function (e) {
-        if (this.readyState == 4) {
-            if (this.status == 200)
-                setMessage("Filesystem Updated!");
-            else
-                setMessage("Filesystem Update Failed!");
-        }
-      };
+  req.send(file);
+}
 
-      // Listen to the upload progress.
-      var progressBar = document.getElementById('progress');
-      req.upload.onprogress = function (e) {
-        if (e.lengthComputable) {
-          progressBar.value = (e.loaded / e.total) * 100;
-          progressBar.textContent = progressBar.value; // Fallback for unsupported browsers.
-        }
-      };
+function loadFile(file) {
 
-      req.send(file);
+  var req = new XMLHttpRequest();
+  req.open('POST', '/flash/write-file?file=' + file.name, true);
+  req.onload = function (e) {
+    if (this.readyState == 4) {
+        if (this.status == 200)
+            setMessage("File Loaded!");
+        else
+            setMessage("File Load Failed!");
     }
+  };
+
+  var progressBar = document.getElementById('progress');
+  req.upload.onprogress = function (e) {
+    if (e.lengthComputable)
+      progressBar.value = (e.loaded / e.total) * 100;
+  };
+
+  req.send(file);
+}
+
+function emptyFilesystem() {
+
+  var req = new XMLHttpRequest();
+  req.open('POST', '/flash/format?address=0x100000', true);
+  req.onload = function (e) {
+    if (this.readyState == 4) {
+        if (this.status == 200)
+            setMessage("Filesystem Emptied!");
+        else
+            setMessage("Empty Filesystem Failed!");
+    }
+  };
+
+  var progressBar = document.getElementById('progress');
+  req.upload.onprogress = function (e) {
+    if (e.lengthComputable)
+      progressBar.value = (e.loaded / e.total) * 100;
+  };
+
+  req.send();
+}
+
 </script>
-</head>
-<body>
-<form action='#' onsubmit="return false;">
-<h1>Select a Filesystem Image to Load</h1>
-<p>
-  <input type='file' id='fileinput' onchange='loadFile();'>
-</p>
-<p>
-  <progress id='progress' min="0" max="100" value="0">0% complete</progress>
-  <p id='message'>&nbsp;</p>
-</p>
-</form>
 </body>
 </html>
 

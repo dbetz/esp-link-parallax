@@ -100,8 +100,12 @@ os_printf("open: %08lx bad magic number\n", p);
             return NULL;
         }
 
+		// check for the end of image marker
+        if (h.flags & FLAG_LASTFILE)
+            return NULL;
+
 		// terminate on a leftover pending file
-		if (h.flags & FLAG_PENDING) {
+		else if (h.flags & FLAG_PENDING) {
 os_printf("open: terminate on a leftover pending file\n");
             return NULL;
         }
@@ -253,7 +257,7 @@ os_printf("find: %08lx insertion point\n", p);
         }
 
 		// remove a leftover pending file
-		if (h.flags & FLAG_PENDING) {
+		else if (h.flags & FLAG_PENDING) {
 		    uint32_t pending = p;
 os_printf("find: remove a leftover pending file\n");
 		    

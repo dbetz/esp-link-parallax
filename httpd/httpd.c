@@ -373,6 +373,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdConnData *conn) {
         //Drat, we're at the end of the URL table. This usually shouldn't happen. Well, just
         //generate a built-in 404 to handle this.
         DBG("%s%s not found. 404!\n", connStr, conn->url);
+        conn->priv->code = 404;
         httpdSend(conn, httpNotFoundHeader, -1);
         httpdFlush(conn);
         conn->cgi = NULL; //mark for destruction.
