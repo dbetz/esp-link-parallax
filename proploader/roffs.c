@@ -115,7 +115,7 @@ struct ROFFS_FILE_STRUCT {
 #define BAD_FILESYSTEM_BASE 3
 static uint32_t fsData = BAD_FILESYSTEM_BASE;
 
-static int ICACHE_FLASH_ATTR readFlash(void *buf, uint32_t addr, int size)
+static int ICACHE_FLASH_ATTR readFlash(uint32_t addr, void *buf, int size)
 {
     uint32_t alignedStart = (addr + 3) & ~3;
     uint32_t alignedStartOffset = alignedStart - addr;
@@ -145,6 +145,26 @@ static int ICACHE_FLASH_ATTR readFlash(void *buf, uint32_t addr, int size)
     return 0;
 }
 
+static int writeFlash(uint32_t addr, void *buf, int size)
+{
+os_printf("writeFlash: %08lx %d\n", addr, size);
+    if (spi_flash_write(addr, (uint32 *)buf, size) != SPI_FLASH_RESULT_OK) {
+os_printf("writeFlash: failed\n");
+        return SPI_FLASH_RESULT_ERR;
+    }
+    return SPI_FLASH_RESULT_OK;
+}
+
+static int updateFlash(uint32_t addr, void *buf, int size)
+{
+os_printf("updateFlash: %08lx %d\n", addr, size);
+    if (spi_flash_write(addr, (uint32 *)buf, size) != SPI_FLASH_RESULT_OK) {
+os_printf("updateFlash: failed\n");
+        return SPI_FLASH_RESULT_ERR;
+    }
+    return SPI_FLASH_RESULT_OK;
+}
+
 int ICACHE_FLASH_ATTR roffs_mount(uint32_t flashAddress)
 {
 	RoFsHeader testHeader;
@@ -154,7 +174,7 @@ int ICACHE_FLASH_ATTR roffs_mount(uint32_t flashAddress)
 		return -1;
 
 	// read the filesystem header (first file header)
-	if (readFlash(&testHeader, flashAddress, sizeof(RoFsHeader)) != 0)
+	if (readFlash(flashAddress, &testHeader, sizeof(RoFsHeader)) != 0)
         return -2;
 
     // check the magic number to make sure this is really a filesystem
@@ -185,7 +205,7 @@ ROFFS_FILE ICACHE_FLASH_ATTR *roffs_open(const char *fileName)
 	for (;;) {
 
 		// read the next file header
-		if (readFlash(&h, p, sizeof(RoFsHeader)) != 0)
+		if (readFlash(p, &h, sizeof(RoFsHeader)) != 0)
             return NULL;
 
         // check the magic number
@@ -200,7 +220,7 @@ ROFFS_FILE ICACHE_FLASH_ATTR *roffs_open(const char *fileName)
         if ((h.flags & FLAG_ACTIVE) && !(h.flags & FLAG_PENDING)) {
 
             // get the name of the file
-		    if (readFlash(namebuf, p + sizeof(RoFsHeader), sizeof(namebuf)) != 0)
+		    if (readFlash(p + sizeof(RoFsHeader), namebuf, sizeof(namebuf)) != 0)
                 return NULL;
 
 		    // check to see if this is the file we're looking for
@@ -240,8 +260,7 @@ os_printf("close: error reading new file header\n");
             return -1;
         }
         h.flags &= ~FLAG_PENDING;
-os_printf("write: %08lx %d\n", file->header, sizeof(RoFsHeader));
-	    if (spi_flash_write(file->header, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
+	    if (updateFlash(file->header, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
 os_printf("close: error updating new file header\n");
             return -1;
         }
@@ -249,8 +268,7 @@ os_printf("close: error updating new file header\n");
         os_memset(&h, 0xff, sizeof(RoFsHeader));
 	    h.magic = ROFS_MAGIC;
         file->offset = (file->offset + 3) & ~3;
-os_printf("write: %08lx %d\n", file->start + file->offset, sizeof(RoFsHeader));
-	    if (spi_flash_write(file->start + file->offset, (uint32 *)&h, sizeof(RoFsHeader)) != 0) {
+	    if (writeFlash(file->start + file->offset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
 os_printf("close: error writing new terminator\n");
             return -1;
         }
@@ -283,7 +301,7 @@ int ICACHE_FLASH_ATTR roffs_read(ROFFS_FILE *file, char *buf, int len)
         len = remaining;
 
     // read from the flash
-	if (readFlash(buf, file->start + file->offset, len) != 0)
+	if (readFlash(file->start + file->offset, buf, len) != 0)
         return -1;
 
 	// update the file position
@@ -318,7 +336,7 @@ os_printf("roffs: filesystem not mounted\n");
 	for (;;) {
 
 		// read the next file header
-		if (readFlash(&h, p, sizeof(RoFsHeader)) != 0) {
+		if (readFlash(p, &h, sizeof(RoFsHeader)) != 0) {
 os_printf("roffs: %08lx error reading file header\n", p);
             return -1;
         }
@@ -340,7 +358,7 @@ os_printf("roffs: %08lx insertion point\n", p);
         if ((h.flags & FLAG_ACTIVE) && !(h.flags & FLAG_PENDING)) {
 
             // get the name of the file
-		    if (readFlash(namebuf, p + sizeof(RoFsHeader), sizeof(namebuf)) != 0) {
+		    if (readFlash(p + sizeof(RoFsHeader), namebuf, sizeof(namebuf)) != 0) {
 os_printf("roffs: %08lx error reading file name\n", p);
                 return -1;
             }
@@ -351,7 +369,7 @@ os_printf("roffs: %08lx checking '%s'\n", p, namebuf);
                 *pFileOffset = p;
         }
         else {
-os_printf("roffs: %08lx skipping\n", p);
+os_printf("roffs: %08lx skipping %s file\n", p, h.flags & FLAG_PENDING ? "pending" : "deleted");
         }
 
 		// skip over the file data
@@ -390,8 +408,7 @@ os_printf("create: error reading old file header\n");
             return NULL;
         }
         h.flags &= ~FLAG_ACTIVE;
-os_printf("write: %08lx %d\n", fileOffset, sizeof(RoFsHeader));
-	    if (spi_flash_write(fileOffset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
+	    if (updateFlash(fileOffset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
 os_printf("create: error writing old file header\n");
             os_free(file);
             return NULL;
@@ -411,14 +428,12 @@ os_printf("create: error writing old file header\n");
     file->size = size;
     file->flags = FLAG_LASTFILE;
 
-os_printf("write: %08lx %d\n", insertionOffset, sizeof(RoFsHeader));
-	if (spi_flash_write(insertionOffset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
+	if (writeFlash(insertionOffset, (uint32 *)&h, sizeof(RoFsHeader)) != SPI_FLASH_RESULT_OK) {
 os_printf("create: error writing new file header\n");
         os_free(file);
         return NULL;
     }
-os_printf("write: %08lx %d\n", insertionOffset + sizeof(RoFsHeader), h.nameLen);
-	if (spi_flash_write(insertionOffset + sizeof(RoFsHeader), (uint32 *)fileName, h.nameLen) != SPI_FLASH_RESULT_OK) {
+	if (writeFlash(insertionOffset + sizeof(RoFsHeader), (uint32 *)fileName, h.nameLen) != SPI_FLASH_RESULT_OK) {
 os_printf("create: error reading new file name\n");
         os_free(file);
         return NULL;
@@ -429,9 +444,10 @@ os_printf("create: error reading new file name\n");
 
 int ICACHE_FLASH_ATTR roffs_write(ROFFS_FILE *file, char *buf, int len)
 {
-os_printf("write: %08lx %d\n", file->start + file->offset, len);
-    if (spi_flash_write(file->start + file->offset, (uint32 *)buf, len) != 0)
+    if (writeFlash(file->start + file->offset, (uint32 *)buf, len) != SPI_FLASH_RESULT_OK) {
+os_printf("write: error writing to file\n");
         return -1;
+    }
     file->offset += len;
     return len;
 }
