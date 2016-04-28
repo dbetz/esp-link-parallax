@@ -26,7 +26,7 @@ int roffs_file_flags(ROFFS_FILE *file);
 int roffs_read(ROFFS_FILE *file, char *buf, int len);
 int roffs_close(ROFFS_FILE *file);
 
-ROFFS_FILE *roffs_create(const char *fileName, int size);
+ROFFS_FILE *roffs_create(const char *fileName);
 int roffs_write(ROFFS_FILE *file, char *buf, int len);
 
 #endif

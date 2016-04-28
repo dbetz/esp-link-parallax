@@ -109,15 +109,6 @@ cgiRoffsHook(HttpdConnData *connData) {
 	}
 }
 
-static int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, int *pValue)
-{
-  char buf[16];
-  int len = httpdFindArg(connData->getArgs, name, buf, sizeof(buf));
-  if (len < 0) return 0; // not found, skip
-  *pValue = atoi(buf);
-  return 1;
-}
-
 #define MAX_SENDBUFF_LEN 2600
 
 static void ICACHE_FLASH_ATTR httpdSendResponse(HttpdConnData *connData, int code, char *message, int len)
@@ -146,8 +137,6 @@ int ICACHE_FLASH_ATTR cgiRoffsFormat(HttpdConnData *connData)
 int ICACHE_FLASH_ATTR cgiRoffsWriteFile(HttpdConnData *connData)
 {
     ROFFS_FILE *file = connData->cgiData;
-    char fileName[128];
-    int fileSize = 0;
     
     // check for the cleanup call
     if (connData->conn == NULL) {
@@ -160,29 +149,25 @@ int ICACHE_FLASH_ATTR cgiRoffsWriteFile(HttpdConnData *connData)
     
     // open the file on the first call
     if (!file) {
+        char fileName[128];
 
         if (!getStringArg(connData, "file", fileName, sizeof(fileName))) {
             errorResponse(connData, 400, "Missing file argument\r\n");
             return HTTPD_CGI_DONE;
         }
-        if (!getIntArg(connData, "size", &fileSize)) {
-            errorResponse(connData, 400, "Missing size argument\r\n");
-            return HTTPD_CGI_DONE;
-        }
 
-        if (!(file = roffs_create(fileName, fileSize))) {
+        if (!(file = roffs_create(fileName))) {
             errorResponse(connData, 400, "File not created\r\n");
             return HTTPD_CGI_DONE;
         }
         connData->cgiData = file;
 
-        DBG("write-file: file %s, size %d\n", fileName, fileSize);
+        DBG("write-file: file %s\n", fileName);
     }
 
     // append data to the file
     if (connData->post->buffLen > 0) {
-        int roundedLen = (connData->post->buffLen + 3) & ~3;
-        if (roffs_write(file, connData->post->buff, roundedLen) != roundedLen) {
+        if (roffs_write(file, connData->post->buff, connData->post->buffLen) != connData->post->buffLen) {
             errorResponse(connData, 400, "File write failed\r\n");
             return HTTPD_CGI_DONE;
         }
