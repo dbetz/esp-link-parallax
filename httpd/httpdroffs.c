@@ -118,6 +118,19 @@ static int8_t ICACHE_FLASH_ATTR getIntArg(HttpdConnData *connData, char *name, i
   return 1;
 }
 
+#define MAX_SENDBUFF_LEN 2600
+
+static void ICACHE_FLASH_ATTR httpdSendResponse(HttpdConnData *connData, int code, char *message, int len)
+{
+    char sendBuff[MAX_SENDBUFF_LEN];
+    httpdSetOutputBuffer(connData, sendBuff, sizeof(sendBuff));
+    httpdStartResponse(connData, code);
+    httpdEndHeaders(connData);
+    httpdSend(connData, message, len);
+    httpdFlush(connData);
+    connData->cgi = NULL;
+}
+
 int ICACHE_FLASH_ATTR cgiRoffsWriteFile(HttpdConnData *connData)
 {
     ROFFS_FILE *file = connData->cgiData;
@@ -162,6 +175,14 @@ int ICACHE_FLASH_ATTR cgiRoffsWriteFile(HttpdConnData *connData)
             return HTTPD_CGI_DONE;
         }
     }
+    
+    // check for the end of the transfer
+    if (connData->post->received == connData->post->len) {
+        roffs_close(file);
+        connData->cgiData = NULL;
+        httpdSendResponse(connData, 200, "", -1);
+        return HTTPD_CGI_DONE;
+    }
 
-    return connData->post->received == connData->post->len ? HTTPD_CGI_DONE : HTTPD_CGI_MORE;
+    return HTTPD_CGI_MORE;
 }

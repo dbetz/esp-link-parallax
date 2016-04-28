@@ -204,13 +204,15 @@ int ICACHE_FLASH_ATTR cgiWriteFlash(HttpdConnData *connData) {
   // erase next flash block if necessary
   if (address % SPI_FLASH_SEC_SIZE == 0){
     DBG("Erasing 0x%05x\n", address);
-    spi_flash_erase_sector(address/SPI_FLASH_SEC_SIZE);
+    if (spi_flash_erase_sector(address/SPI_FLASH_SEC_SIZE) != SPI_FLASH_RESULT_OK)
+      DBG("Error: erasing flash\n");
   }
 
   // Write the data
   DBG("Writing %d bytes to 0x%05x (%d of %d)\n", connData->post->buffSize, address,
   		connData->post->received, connData->post->len);
-  spi_flash_write(address, (uint32 *)connData->post->buff, connData->post->buffLen);
+  if (spi_flash_write(address, (uint32 *)connData->post->buff, connData->post->buffLen) != SPI_FLASH_RESULT_OK)
+    DBG("Error: writing flash\n");
 
   if (connData->post->received == connData->post->len){
     httpdStartResponse(connData, 200);
