@@ -288,8 +288,10 @@ static int ICACHE_FLASH_ATTR find_file_and_insertion_point(const char *fileName,
     *pFileOffset = NOT_FOUND;
 
 	// make sure there is a filesystem mounted
-    if (fsData == BAD_FILESYSTEM_BASE)
+    if (fsData == BAD_FILESYSTEM_BASE) {
+os_printf("roffs: filesystem not mounted\n");
 		return -1;
+	}
 
 	// strip initial slashes
 	while (fileName[0] == '/')
@@ -299,12 +301,16 @@ static int ICACHE_FLASH_ATTR find_file_and_insertion_point(const char *fileName,
 	for (;;) {
 
 		// read the next file header
-		if (readFlash(&h, p, sizeof(RoFsHeader)) != 0)
+		if (readFlash(&h, p, sizeof(RoFsHeader)) != 0) {
+os_printf("roffs: error reading file header\n");
             return -1;
+        }
 
         // check the magic number
-		if (h.magic != ROFS_MAGIC)
+		if (h.magic != ROFS_MAGIC) {
+os_printf("roffs: bad magic number\n");
             return -1;
+        }
 
 		// check for the end of image marker
         if (h.flags & FLAG_LASTFILE) {
@@ -316,9 +322,12 @@ static int ICACHE_FLASH_ATTR find_file_and_insertion_point(const char *fileName,
         if ((h.flags & FLAG_ACTIVE) && !(h.flags & FLAG_PENDING)) {
 
             // get the name of the file
-		    if (readFlash(namebuf, p + sizeof(RoFsHeader), sizeof(namebuf)) != 0)
+		    if (readFlash(namebuf, p + sizeof(RoFsHeader), sizeof(namebuf)) != 0) {
+os_printf("roffs: error reading file name\n");
                 return -1;
+            }
 
+os_printf("roffs: %08x checking '%s'\n", (int)p, namebuf);
 		    // check to see if this is the file we're looking for
             if (os_strcmp(namebuf, fileName) == 0)
                 *pFileOffset = p;
@@ -332,6 +341,7 @@ static int ICACHE_FLASH_ATTR find_file_and_insertion_point(const char *fileName,
 	}
 
     // never reached
+os_printf("roffs: internal error\n");
     return -1;
 }
 
