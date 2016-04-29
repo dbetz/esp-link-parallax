@@ -36,6 +36,7 @@
 #include "cgiprop.h"
 #include "cgihttp.h"
 #include "httpdroffs.h"
+#include "sscp.h"
 #endif
 
 #define NOTICE(format, ...) do {	                                          \
@@ -98,6 +99,7 @@ HttpdBuiltInUrl builtInUrls[] = {
   { "/propeller/reset", cgiPropReset, NULL },
   { "/files/*", cgiRoffsHook, NULL }, //Catch-all cgi function for the flash filesystem
   { "*", cgiHTTPHandleRequest, NULL }, //Check to see if MCU can handle the request
+  { "*", cgiSSCPHandleRequest, NULL }, //Check to see if MCU can handle the request
 #endif
   { "*", cgiEspFsHook, NULL }, //Catch-all cgi function for the filesystem
   { NULL, NULL, NULL }
